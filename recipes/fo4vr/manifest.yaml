@@ -3,10 +3,17 @@
 # Schema: ../../docs/MANIFEST_SCHEMA.md
 # Rationale, exclusions and disputes: ./README.md
 #
-# ⚠️  RESEARCHED, NOT VERIFIED. Every `fileId: null` and `sha256: null` is an unresolved
-#     pin — see MANIFEST_SCHEMA.md "Pins, and what to do when one is null". Versions come
-#     from published community lists, not from live API calls. Nothing here has been
-#     installed or launched. Treat this as a reviewable draft, which is what it is.
+# ✅ PINNED AND EXERCISED 2026-08-16. Every installed entry has a fileId resolved from the
+#    Nexus API and a sha256 computed from the bytes actually downloaded. All ten Nexus
+#    files were fetched, installed, and loaded by F4SEVR in a running game — see
+#    docs/VERIFICATION.md and docs/evidence/f4sevr-full-recipe-2026-08-16.log.
+#
+#    What that does NOT mean: nobody has PLAYED this. Verification runs headless on
+#    SteamVR's null driver and proves the plugins load, not that the result is good in a
+#    headset. Load order among the three esps is dependency-derived, not observed — no
+#    two of these mods are known to conflict yet.
+#
+#    `candidate` entries are deliberately unresolved and uninstalled.
 #
 # The exclusion rule (docs/OPEN_QUESTIONS.md #4): a mod earns a place only if it fixes
 # something BROKEN or MISSING in vanilla FO4VR. No visual overhauls, no rebalancing, no
@@ -89,8 +96,11 @@ mods:
     tier: foundation
     required: true
     enabled: true
-    source: { type: nexus, modId: 64879, fileId: null, version: "1.7.0" }
-    file: { name: null, sha256: null, size: null }
+    source: { type: nexus, modId: 64879, fileId: 310367, version: "1.7.0" }
+    file:
+      name: 'VR Address Library-64879-1-7-0-1713247141.7z'
+      sha256: f0dc32e0e0183baeb94b50fa68f2b3562815e83b777a19db0c286ba932b8882e
+      size: 424711
     install: { root: data }
     plugins: []
     verify: [F4SE/Plugins/version-1-2-72-0.csv]   # exact filename, runtime-specific
@@ -108,8 +118,11 @@ mods:
     tier: foundation
     required: true
     enabled: true
-    source: { type: nexus, modId: 45167, fileId: null, version: "0.1" }
-    file: { name: null, sha256: null, size: null }
+    source: { type: nexus, modId: 45167, fileId: 182280, version: "0.1" }
+    file:
+      name: 'Fallout4VRTools BETA v0.1-45167-v0-1-1589924169.zip'
+      sha256: ff9636045e50f4c5d6f0c8fb008fbcbd995d2c4fc63238098dcce6b2601a33dc
+      size: 231986
     install: { root: data }
     plugins: []
 
@@ -121,8 +134,11 @@ mods:
     tier: foundation
     required: true
     enabled: true
-    source: { type: nexus, modId: 33946, fileId: null, version: "0.2.5.1" }
-    file: { name: null, sha256: null, size: null }
+    source: { type: nexus, modId: 33946, fileId: 221778, version: "0.2.5.1" }
+    file:
+      name: 'xSE PluginPreloader F4 0.2.5.1-33946-0-2-5-1-1637347868.zip'
+      sha256: ae0b418c4acb038b8077ef33b2b29d38214a141a3dfcf412a90d9c0efe05348a
+      size: 2253885
     install:
       root: game                 # preloads via the game dir, not the virtual filesystem
     plugins: []
@@ -136,8 +152,11 @@ mods:
     tier: foundation
     required: true
     enabled: true
-    source: { type: nexus, modId: 64880, fileId: null, version: "1.31.1" }
-    file: { name: null, sha256: null, size: null }
+    source: { type: nexus, modId: 64880, fileId: 268840, version: "1.31.1" }
+    file:
+      name: 'Buffout4 NG-64880-1-31-1-1677574192.7z'
+      sha256: 0e3c979197a014ac9090937fd5a283e3c5b49b884ad90aad8bdef7982d009ce9
+      size: 16566751
     install: { root: data }
     plugins: []
     verify: [F4SE/Plugins/Buffout4.dll]
@@ -157,8 +176,11 @@ mods:
     tier: fix
     required: true
     enabled: true
-    source: { type: nexus, modId: 42497, fileId: null, version: "1.00" }
-    file: { name: null, sha256: null, size: null }
+    source: { type: nexus, modId: 42497, fileId: 172369, version: "1.00" }
+    file:
+      name: 'vcheck_patcher_v100-42497-1-00-1575961056.rar'
+      sha256: 9c96b00413320f0a79e2bc575019502ea158ced70e19e34b529e2bd9feec5580
+      size: 68067
     install: { root: data }
     plugins: []
 
@@ -170,12 +192,19 @@ mods:
     tier: fix
     required: true
     enabled: true
-    source: { type: nexus, modId: 41866, fileId: null, version: "1.0" }
-    file: { name: null, sha256: null, size: null }
-    install:
-      root: fomod
-      fomodChoices: { variant: "nocollide actors" }
-    plugins: [UNVERIFIED.esp]
+    source: { type: nexus, modId: 41866, fileId: 170010, version: "1" }
+    file:
+      name: 'nocollide actors-41866-1-1572607793.zip'
+      sha256: e577ecde33ef3bb1b3eedd2ff338f0ec14e101b2632d0f3022a41052f42acbbd
+      size: null     # API reports 0; the file is a bare esp, under 1 KB
+    install: { root: data }
+    plugins: [nocollide_actors.esp]
+    notes: >
+      RESOLVED 2026-08-16. The author ships each FOMOD permutation as its own standalone
+      file as well as a Fomod Installer (170027). Pinning the standalone 'nocollide
+      actors' variant drops the FOMOD path entirely — one fewer place for an install-time
+      choice to go wrong, and it makes the manifest say plainly which variant we mean.
+      The other permutations add clutter/weapons collision, which we do not want.
 
   - id: weapon-accuracy-redone-vr
     name: Weapon Accuracy Redone for VR
@@ -185,21 +214,45 @@ mods:
     tier: fix
     required: true
     enabled: true
-    source: { type: nexus, modId: 40669, fileId: null, version: "1.0" }
-    file: { name: null, sha256: null, size: null }
+    source: { type: nexus, modId: 40669, fileId: 164468, version: "1.0" }
+    file:
+      name: 'Weapon Accuracy Redone (No DLC)-40669-1-0-1565971083.zip'
+      sha256: c125309364d3539cb7146400eb3414453cd9520ee561a23295059a0509954665
+      size: 1183
     install: { root: data }
-    plugins: [UNVERIFIED.esp]
+    plugins: [WeaponAccuracyRedoneVR.esp]
+    notes: >
+      RESOLVED 2026-08-16. Four variants exist: No DLC / DLC / Automatron / Far Harbor.
+      FO4VR ships standalone with no DLC (verified on disk), so the No DLC file is the
+      only correct one — a DLC variant would master against plugins that do not exist.
+      If the deferred DLC tier ever lands, this pin changes with it.
 
   - id: bird-fix
     name: Bird Fix
     why: Vanilla bird records cause a reproducible crash. Straight bug fix.
-    tier: fix
-    required: true
-    enabled: true
+    tier: candidate                # DEMOTED 2026-08-16 — see notes
+    required: false
+    enabled: false
     source: { type: nexus, modId: 45429, fileId: 204999, version: "1" }
-    file: { name: null, sha256: null, size: null }
+    file:
+      name: 'Bird Fix-45429-1-1617449227.7z'
+      sha256: null   # pending download
+      size: 918145
     install: { root: data }
     plugins: [UNVERIFIED.esp]
+    notes: >
+      ⚠️ HOSTING PROBLEM, found while resolving pins 2026-08-16. Mod 45429 is NOT
+      "Bird Fix" — it is "GingasVR's Reverb and Ambiance Overhaul ... " by crismanator02,
+      a page hosting 48 unrelated miscellaneous files (Frost patches, whole 280 MB MO2
+      instances, "Test", "Mod", "Merge"). Bird Fix is one stray file on someone else's
+      page.
+      This breaks the one-mod-one-page assumption behind the schema, and every file
+      there is "version 1", so `version` carries no information and only fileId
+      identifies anything. It is also a supply-chain smell: a fix distributed this way
+      can change or vanish with no signal, and the page's owner did not author it.
+      DEMOTED to candidate rather than deleted: the underlying crash may well be real
+      and worth fixing, but not from this source. Find the original author, an
+      alternative host, or reproduce the fix — then promote it back.
 
   # NOTE — NO SCOPE MODS. Deliberate, decided 2026-08-16. The picture-in-picture scope is
   # being fixed AT THE ENGINE LEVEL in C:\repos\fallout4-scope-in-scope-investigation, which
@@ -216,10 +269,13 @@ mods:
     tier: fix
     required: true
     enabled: true                # no staging — see notes
-    source: { type: nexus, modId: 53464, fileId: null, version: "0.66" }
-    file: { name: null, sha256: null, size: null }
+    source: { type: nexus, modId: 53464, fileId: 314905, version: "0.66" }
+    file:
+      name: 'FRIK alpha 66-53464-v0-66-1715094878.zip'
+      sha256: 7514ad8c868c7c1e752931b2ac0bebbaebed1173944507ad16b76c5c7633bb23
+      size: 3445238
     install: { root: data }
-    plugins: []
+    plugins: [FRIK.esp]   # verified on disk 2026-08-16
     upstream: C:\repos\Fallout-4-VR-Body
     notes: >
       AUTHORED BY THIS PROJECT'S DEVELOPER. Not an outside dependency — source is next
@@ -240,10 +296,13 @@ mods:
     tier: fix
     required: false                # KEPT, confirmed 2026-08-16
     enabled: true
-    source: { type: nexus, modId: 28516, fileId: null, version: "1.1" }
-    file: { name: null, sha256: null, size: null }
+    source: { type: nexus, modId: 28516, fileId: 117525, version: "1.1" }
+    file:
+      name: 'Full Dialog VR - List v1.1-28516-v1-1.zip'
+      sha256: 8bfba301afd65ed8dda5a3c56195c7f099ca3a029cc5bc7a6e352b346a924f73
+      size: 32716144
     install: { root: data }
-    plugins: [UNVERIFIED.esp]
+    plugins: []   # none — interface + strings replacer, verified on disk 2026-08-16
     postInstall:
       - delete: interface/MultiActivateMenu.swf    # required for the VR fix
 
@@ -258,13 +317,23 @@ mods:
     source:
       type: nexus
       modId: 21497
-      fileId: null
+      fileId: 316521
       version: "1.0.0"
-    install:
-      root: fomod
-      fomodChoices: { variant: "MCM_VR" }          # VR build ONLY
-    file: { name: null, sha256: null, size: null }
+    install: { root: data }          # standalone VR zip, not the FOMOD installer
+    file:
+      name: 'MCM_VR-21497-1-0-0-1715710309.zip'
+      sha256: 40ccfe7e54f6abe90b117f674411e9cf3cc0ec3d15af8068bead474c75e83786
+      size: 374641
     plugins: []
+    notes: >
+      RESOLVED BY HAND 2026-08-16 — the resolver correctly refused to guess. Five files
+      share a version that normalises to "1" (1.0, 1.0.0, 1), so version carries no
+      information and only the filename distinguishes them. That is the case the schema's
+      "propose, never adopt" rule exists for.
+      Pinned to the standalone MCM_VR zip, which also avoids the FOMOD path.
+      ⚠️ NEWER FILE EXISTS: fileId 400967, "MCM VR b2", uploaded 2026-06-20 — roughly two
+      years newer than this pin. Deliberately NOT taken: a pin should be what was tested,
+      and nothing here has tested either. Worth evaluating, then promoting on purpose.
 
   # --- performance: the hardware-adaptive half -----------------------------
   # Installed deterministically; CONFIGURED by the agent from the real GPU/headset.
@@ -333,8 +402,11 @@ mods:
     tier: candidate
     required: false
     enabled: false
-    source: { type: nexus, modId: 47327, fileId: null, version: "1.10.163.0" }
-    file: { name: null, sha256: null, size: null }
+    source: { type: nexus, modId: 47327, fileId: 191018, version: "1.10.163.0" }
+    file:
+      name: 'Addres Library-47327-1-10-163-0-1599728753.zip'
+      sha256: null   # pending download
+      size: 9554944
     install: { root: data }
     plugins: []
 
@@ -357,7 +429,7 @@ order:
     - weapon-accuracy-redone-vr
     - player-collision-options
     - full-dialog-vr
-    - bird-fix
+    # bird-fix demoted to candidate 2026-08-16 (hosting problem, see its notes)
     - version-check-patcher
     - buffout-4-ng-vr
     # xse-plugin-preloader is deliberately absent: root=game, so it lives outside usvfs

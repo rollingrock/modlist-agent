@@ -134,7 +134,48 @@ Three consequences for the design:
 - [x] usvfs redirected writes into `overwrite/` — game `Data/` untouched
 - [x] **devbench answered on `127.0.0.1:8931`**
 
-## What this run did *not* prove
+---
+
+## Second run, same day: the whole recipe
+
+The first run proved the instance. This one proves the **recipe**: every mod downloaded
+from Nexus against its pin, installed, and loaded.
+
+```
+[ ok ] PASS: devbench answered on :8931 — exe=Fallout4VR.exe vr=True extender=F4SE frame=485
+```
+
+No `--partial` this time, so `verify` confirmed every installable entry was present with
+the files it declares before it would even launch. The stronger evidence is F4SEVR's own
+log (`evidence/f4sevr-full-recipe-2026-08-16.log`):
+
+```
+plugin ...\Buffout4.dll (00000001 Buffout4 00000001) loaded correctly
+plugin ...\devbench.dll (00000001 devbench 00000001) loaded correctly
+plugin ...\FO4VRTools.dll (00000001 FO4VRTools 00000001) loaded correctly
+plugin ...\FRIK.dll (00000001 F4VRBody 00000000) loaded correctly
+plugin ...\mcm_vr.dll (00000001 F4MCMVR 00000008) loaded correctly
+plugin ...\vcheck_patcher.dll (00000001 VcheckPatcher 01000000) loaded correctly
+init complete
+```
+
+Six plugins, all from `mods/`, all loaded. That is the claim the project set out to be
+able to make: not "the agent said it installed", but a list of plugins the engine itself
+reports as loaded, from a build whose every file was hash-checked against a manifest.
+
+`msdia140.dll` logs "does not appear to be an F4SE plugin" — expected. It is the PDB
+library Buffout NG ships for symbolised crash logs, not a plugin.
+
+### One observation worth a look
+
+The log contains `registering plugin listener for FO4VRBETTERSCOPES at 4 of 7`. Something
+in the load order registers an inter-plugin listener for Better Scopes VR, which this
+recipe deliberately does not install. Harmless as far as this run shows — everything
+loaded and the game ran — but it suggests a cross-plugin messaging interface that expects
+a scope mod to exist. Worth confirming that nothing degrades in its absence, given the
+decision to drop scope mods entirely.
+
+## What the first run did *not* prove
 
 Stated plainly, because a green result is the easiest place to smuggle in an unearned claim:
 

@@ -127,6 +127,126 @@ def cmd_build(args) -> int:
     return 0
 
 
+def cmd_install(args) -> int:
+    """Install downloaded archives into the instance. Hash-checked before anything moves."""
+    from .instance import sha256
+
+    m = mf.load(args.manifest, strict=False)
+    plat = platforms.get(m.game["id"])
+    g = discover.find_game(plat)
+    if not g:
+        print(f"{BAD} game not found"); return 1
+    inst = instance.Instance(pathlib.Path(args.instance), plat, g.path)
+    if not inst.exe.exists():
+        print(f"{BAD} no instance at {inst.path} — run `build` first"); return 1
+
+    downloads = inst.path / "downloads"
+    staging = inst.path / "_staging"
+    only = set(args.only.split(",")) if args.only else None
+    n = skipped = 0
+
+    for e in m.mods + m.tools:
+        if e.tier == "candidate" or e.root == "instance":
+            continue
+        if only and e.id not in only:
+            continue
+        name = e.file.get("name")
+        if not name:
+            skipped += 1
+            print(f"{WARN} {e.id}: no pinned filename — nothing to install"); continue
+        archive = downloads / name
+        if not archive.exists():
+            skipped += 1
+            print(f"{WARN} {e.id}: {name} not downloaded"); continue
+        want = e.file.get("sha256")
+        if want:
+            got = sha256(archive)
+            if got != want:
+                # Never install something that failed its pin, even if it looks fine.
+                print(f"{BAD} {e.id}: HASH MISMATCH, refusing to install\n"
+                      f"       expected {want}\n       got      {got}")
+                return 1
+        try:
+            print(f"{OK} {inst.install_archive(e, archive, staging)}")
+            n += 1
+        except Exception as exc:
+            print(f"{BAD} {e.id}: {exc}"); return 1
+
+    shutil_rmtree(staging)
+    print(f"\n{n} installed, {skipped} skipped")
+    return 0
+
+
+def shutil_rmtree(p: pathlib.Path) -> None:
+    import shutil
+    shutil.rmtree(p, ignore_errors=True)
+
+
+def cmd_download(args) -> int:
+    from . import download as dl, nexus
+
+    m = mf.load(args.manifest, strict=False)
+    plat = platforms.get(m.game["id"])
+    dest = pathlib.Path(args.instance) / "downloads" if args.instance else pathlib.Path(args.dest)
+    entries = dl.targets(m)
+
+    if args.print_links:
+        # The free path. We print; the human clicks. We never click for them.
+        print("Click 'Mod Manager Download' on each page. Each click hands an nxm:// link\n"
+              "to the registered handler; feed those back with --nxm or --nxm-file.\n")
+        for eid, url in dl.links_for(m, entries):
+            print(f"  {eid}\n    {url}")
+        return 0
+
+    try:
+        client = nexus.Client(args.key)
+        who = client.validate()
+    except nexus.NexusError as e:
+        print(f"{BAD} {e}")
+        return 1
+    premium = bool(who.get("is_premium"))
+    print(f"account {who.get('name')} — {'PREMIUM' if premium else 'free'}")
+    if not premium:
+        print("       free account: only files with an nxm:// link can be fetched.\n"
+              "       Run with --print-links, click each, then pass them with --nxm-file.")
+
+    nxm = []
+    for u in args.nxm or []:
+        nxm.append(nexus.NxmLink.parse(u))
+    if args.nxm_file:
+        for line in pathlib.Path(args.nxm_file).read_text(encoding="utf-8").splitlines():
+            if line.strip().startswith("nxm://"):
+                nxm.append(nexus.NxmLink.parse(line.strip()))
+
+    only = set(args.only.split(",")) if args.only else None
+    results = dl.fetch_all(m, dest, client=client, nxm_links=nxm, only=only)
+
+    ok = bad = pending = 0
+    for r in results:
+        if r.matched is False:
+            bad += 1
+            print(f"{BAD} {r.entry_id}: HASH MISMATCH ({r.note})\n       got {r.sha256}")
+        elif r.note.startswith(("ERROR", "NEEDS CLICK")):
+            pending += 1
+            print(f"{WARN} {r.entry_id}: {r.note.splitlines()[0]}")
+        elif r.matched is True:
+            ok += 1
+            print(f"{OK} {r.entry_id}: verified against pin{' (cached)' if r.note == 'cached' else ''}")
+        else:
+            ok += 1
+            print(f"{OK} {r.entry_id}: {r.sha256[:16]}… ({r.note or 'downloaded'})")
+    print(f"\n{ok} ok, {bad} mismatched, {pending} pending; "
+          f"rate limit remaining {client.rate.get('x-rl-hourly-remaining', '?')}")
+
+    if args.write_hashes:
+        n = dl.record_hashes(m.path, results)
+        print(f"{OK} recorded {n} new hash(es) into {m.path}")
+        print("      Review the diff before committing — these are proposals, and a pin "
+              "is a claim about what was tested.")
+    # A mismatch is the loud case: the world moved and nothing should proceed on it.
+    return 1 if bad else 0
+
+
 def cmd_verify(args) -> int:
     m = mf.load(args.manifest, strict=False)
     plat = platforms.get(m.game["id"])
@@ -163,6 +283,25 @@ def main(argv=None) -> int:
     b.add_argument("--local", action="append",
                    help="install a manifest mod from a directory: id=PATH (repeatable)")
     b.set_defaults(fn=cmd_build)
+
+    dw = sub.add_parser("download", help="fetch pinned files and verify them")
+    dw.add_argument("manifest")
+    dw.add_argument("--instance", help="download into <instance>/downloads")
+    dw.add_argument("--dest", help="download here instead")
+    dw.add_argument("--key", help="Nexus API key (default: NEXUS_API_KEY or ~/.nexus-api-key)")
+    dw.add_argument("--print-links", action="store_true",
+                    help="free path: print the file pages for the user to click")
+    dw.add_argument("--nxm", action="append", help="an nxm:// link (repeatable)")
+    dw.add_argument("--nxm-file", help="file containing nxm:// links, one per line")
+    dw.add_argument("--only", help="comma-separated entry ids")
+    dw.add_argument("--write-hashes", action="store_true",
+                    help="record newly computed sha256 into empty pins")
+    dw.set_defaults(fn=cmd_download)
+
+    i = sub.add_parser("install", help="install downloaded archives into the instance")
+    i.add_argument("manifest"); i.add_argument("--instance", required=True)
+    i.add_argument("--only", help="comma-separated entry ids")
+    i.set_defaults(fn=cmd_install)
 
     v = sub.add_parser("verify", help="launch and prove it worked")
     v.add_argument("manifest"); v.add_argument("--instance", required=True)

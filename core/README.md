@@ -69,14 +69,52 @@ missing from `order.install`, or that a `root: game` entry has no uninstall note
 cannot tell you a pin points at the right file. Do not let a green `doctor` read as more
 than it is.
 
+## The full pipeline
+
+```powershell
+python core\mla.py doctor   recipes\fo4vr\manifest.yaml
+python core\mla.py build    recipes\fo4vr\manifest.yaml --instance C:\Modding\mo2_fo4vr_gen
+python core\mla.py download recipes\fo4vr\manifest.yaml --instance C:\Modding\mo2_fo4vr_gen
+python core\mla.py install  recipes\fo4vr\manifest.yaml --instance C:\Modding\mo2_fo4vr_gen
+python core\mla.py verify   recipes\fo4vr\manifest.yaml --instance C:\Modding\mo2_fo4vr_gen
+```
+
+Ran end to end on 2026-08-16: 10 Nexus files fetched and hashed, installed, and every
+plugin loaded. See `docs/VERIFICATION.md`.
+
+### Free vs Premium
+
+```powershell
+mla download <manifest> --print-links     # prints the file pages; the USER clicks
+mla download <manifest> --nxm-file links.txt
+```
+
+Premium needs neither. Both paths hash identically — premium is faster, never more
+trusted. We never click a download button on the user's behalf.
+
+### Archive layout detection
+
+`Instance.detect_data_root` finds the directory inside an archive that maps to `Data/`.
+Authors package inconsistently (`Data/F4SE/...`, `F4SE/...`, or a version-named wrapper),
+and guessing wrong installs a mod that is present but invisible to the game — it looks
+installed and does nothing. Two of the ten needed a `Data/` wrapper stripped.
+
+`root: game` entries are copied into the game directory instead, **backing up anything
+they replace** to `<name>.modlist-agent.bak`. Those are the only files that deleting the
+instance does not undo.
+
 ## What this does not do yet
 
-- **Download and install Nexus mods.** `build` generates the instance and installs local
-  sources; it does not fetch. Twelve pins are unresolved and the download path
-  (`nxm://` and the premium API) is designed but unwritten. This is the biggest gap.
-- **Archive installs.** `install_local` takes a directory. Extraction with `strip`/FOMOD
-  handling exists in `instance.extract` but is unused by the mod path.
+- **The free download path is written but untested.** `--print-links` and nxm parsing
+  exist; the `key`/`expires` flow has never run, because this account is Premium.
+- **`nxm://` handler registration.** Deliberately not implemented — it would clobber the
+  user's MO2 association, and it is an install-time concern. Links are accepted on the
+  command line instead.
+- **FOMOD installers.** No entry currently needs one; where a variant was ambiguous, the
+  manifest pins the author's standalone file instead, which is better anyway.
 - **INI tuning.** The adaptive half writes a placeholder `Fallout4Custom.ini`. Nothing
-  reads the GPU yet.
+  reads the GPU yet — this is the largest unbuilt piece of the original design.
 - **Idempotency.** `build` overwrites profile files and leaves `mods/` alone. It has never
   been run against a half-set-up machine, which is the case real users have.
+- **`file.name` for non-Nexus sources**, so `install` skips vrperfkit, CAS and F4SEVR with
+  a warning rather than installing them.

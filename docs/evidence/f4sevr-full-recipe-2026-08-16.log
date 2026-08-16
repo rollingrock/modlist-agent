@@ -1,0 +1,31 @@
+F4SEVR runtime: initialize (version = 0.6.21 010A08A0 01DD2DAF9880D83A, os = 6.2 (9200))
+imagebase = 00007FF6F36E0000
+reloc mgr imagebase = 00007FF6F36E0000
+plugin directory = C:\Program Files (x86)\Steam\steamapps\common\Fallout 4 VR\Data\F4SE\Plugins\
+checking plugin C:\Program Files (x86)\Steam\steamapps\common\Fallout 4 VR\Data\F4SE\Plugins\\Buffout4.dll
+unknown QueryInterface 00000007
+registering plugin listener for F4SE at 1 of 2
+plugin C:\Program Files (x86)\Steam\steamapps\common\Fallout 4 VR\Data\F4SE\Plugins\\Buffout4.dll (00000001 Buffout4 00000001) loaded correctly
+checking plugin C:\Program Files (x86)\Steam\steamapps\common\Fallout 4 VR\Data\F4SE\Plugins\\devbench.dll
+unknown QueryInterface 00000007
+registering plugin listener for F4SE at 2 of 3
+registering plugin listener for (null) at 2 of 3
+plugin C:\Program Files (x86)\Steam\steamapps\common\Fallout 4 VR\Data\F4SE\Plugins\\devbench.dll (00000001 devbench 00000001) loaded correctly
+checking plugin C:\Program Files (x86)\Steam\steamapps\common\Fallout 4 VR\Data\F4SE\Plugins\\FO4VRTools.dll
+registering plugin listener for F4SE at 3 of 4
+plugin C:\Program Files (x86)\Steam\steamapps\common\Fallout 4 VR\Data\F4SE\Plugins\\FO4VRTools.dll (00000001 FO4VRTools 00000001) loaded correctly
+checking plugin C:\Program Files (x86)\Steam\steamapps\common\Fallout 4 VR\Data\F4SE\Plugins\\FRIK.dll
+registering plugin listener for F4SE at 4 of 5
+plugin C:\Program Files (x86)\Steam\steamapps\common\Fallout 4 VR\Data\F4SE\Plugins\\FRIK.dll (00000001 F4VRBody 00000000) loaded correctly
+checking plugin C:\Program Files (x86)\Steam\steamapps\common\Fallout 4 VR\Data\F4SE\Plugins\\mcm_vr.dll
+registering plugin listener for F4SE at 5 of 6
+plugin C:\Program Files (x86)\Steam\steamapps\common\Fallout 4 VR\Data\F4SE\Plugins\\mcm_vr.dll (00000001 F4MCMVR 00000008) loaded correctly
+checking plugin C:\Program Files (x86)\Steam\steamapps\common\Fallout 4 VR\Data\F4SE\Plugins\\msdia140.dll
+plugin C:\Program Files (x86)\Steam\steamapps\common\Fallout 4 VR\Data\F4SE\Plugins\\msdia140.dll does not appear to be an F4SE plugin
+checking plugin C:\Program Files (x86)\Steam\steamapps\common\Fallout 4 VR\Data\F4SE\Plugins\\vcheck_patcher.dll
+plugin C:\Program Files (x86)\Steam\steamapps\common\Fallout 4 VR\Data\F4SE\Plugins\\vcheck_patcher.dll (00000001 VcheckPatcher 01000000) loaded correctly
+registering plugin listener for (null) at 2 of 7
+registering plugin listener for FO4VRBETTERSCOPES at 4 of 7
+config path = C:\Program Files (x86)\Steam\steamapps\common\Fallout 4 VR\Data\F4SE\f4sevr.ini
+init complete
+RegisterPapyrusFunctions_Hook

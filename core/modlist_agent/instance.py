@@ -239,6 +239,109 @@ class Instance:
                     encoding="utf-8")
 
     # --- mods ------------------------------------------------------------------
+    # --- archives --------------------------------------------------------------
+    #: directories/extensions that mark a directory as being the Data root
+    DATA_MARKERS = {"f4se", "skse", "scripts", "meshes", "textures", "interface",
+                    "materials", "sound", "music", "video", "strings"}
+    PLUGIN_EXT = {".esp", ".esm", ".esl", ".ba2", ".bsa"}
+
+    @classmethod
+    def detect_data_root(cls, top: pathlib.Path) -> pathlib.Path:
+        """Find the directory inside an extracted archive that maps to Data/.
+
+        Authors package inconsistently: some ship `Data/F4SE/...`, some ship `F4SE/...`,
+        some wrap everything in a version-named folder. Guessing wrong installs a mod
+        that is present but invisible to the game — it looks fine and does nothing.
+        """
+        cur = top
+        for _ in range(4):
+            entries = list(cur.iterdir())
+            if not entries:
+                return cur
+            names = {p.name.lower() for p in entries}
+            if names & cls.DATA_MARKERS or any(
+                    p.suffix.lower() in cls.PLUGIN_EXT for p in entries):
+                return cur
+            # A lone `Data` wrapper, or a lone version-named wrapper: descend.
+            dirs = [p for p in entries if p.is_dir()]
+            if len(entries) == 1 and dirs:
+                cur = dirs[0]
+                continue
+            if len(dirs) == 1 and dirs[0].name.lower() == "data":
+                cur = dirs[0]
+                continue
+            return cur
+        return cur
+
+    def install_archive(self, entry, archive: pathlib.Path, staging: pathlib.Path) -> str:
+        """Extract an archive and place it as a mod (root=data) or into the game (root=game)."""
+        work = staging / entry.id
+        shutil.rmtree(work, ignore_errors=True)
+        extract(archive, work, strip=entry.install.get("strip", 0))
+
+        if entry.root == "game":
+            return self._install_into_game(entry, work)
+
+        root = self.detect_data_root(work)
+        dest = self.mods / entry.name
+        if dest.exists():
+            shutil.rmtree(dest)
+        shutil.copytree(root, dest)
+        self._write_meta(entry, dest)
+        rel = root.relative_to(work)
+        return (f"installed {entry.name}"
+                + (f" (data root: {rel})" if str(rel) != "." else ""))
+
+    def _install_into_game(self, entry, work: pathlib.Path) -> str:
+        """Copy declared files into the game directory, backing up anything it replaces.
+
+        These are the only files that live outside the instance, so they are the only
+        ones deleting the instance does not undo.
+        """
+        wanted = entry.install.get("files")
+        root = work
+        kids = [p for p in work.iterdir()]
+        if len(kids) == 1 and kids[0].is_dir():
+            root = kids[0]
+        copied, backed = [], []
+        for item in root.rglob("*"):
+            if item.is_dir():
+                continue
+            rel = item.relative_to(root)
+            if wanted and not any(str(rel).lower().startswith(w.lower().rstrip("/"))
+                                  for w in wanted):
+                continue
+            target = self.game_path / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if target.exists():
+                bak = target.with_suffix(target.suffix + ".modlist-agent.bak")
+                if not bak.exists():
+                    shutil.copy2(target, bak)
+                    backed.append(str(rel))
+            shutil.copy2(item, target)
+            copied.append(str(rel))
+        msg = f"installed {entry.name} into the GAME directory ({len(copied)} file(s))"
+        if backed:
+            msg += f"; backed up {', '.join(backed)}"
+        return msg
+
+    def _write_meta(self, entry, dest: pathlib.Path) -> None:
+        meta = [
+            "[General]",
+            f"gameName={self.platform.mo2_short_name}",
+            f"modid={entry.source.get('modId', 0)}",
+            f"version={entry.source.get('version', '0.0.0.0')}",
+        ]
+        if entry.source.get("type") == "nexus":
+            meta.append("repository=Nexus")
+        if entry.file.get("name"):
+            meta.append(f"installationFile={entry.file['name']}")
+        if entry.source.get("fileId"):
+            meta += ["", "[installedFiles]", "size=1",
+                     f"1\\modid={entry.source['modId']}",
+                     f"1\\fileid={entry.source['fileId']}"]
+        (dest / "meta.ini").write_text("\n".join(meta) + "\n", encoding="utf-8")
+
     def install_dir(self, name: str, src: pathlib.Path, note: str = "") -> str:
         """Place a plain directory as a mod. Used for the verification harness."""
         dest = self.mods / name

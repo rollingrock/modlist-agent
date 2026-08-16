@@ -53,8 +53,17 @@ def get(path, key):
 
 
 def norm(v):
-    """Version strings are author-typed and inconsistent: '1.7.0' vs 'v1.7' vs '1.7.0.0'."""
-    return (v or "").strip().lstrip("vV").rstrip(".0").lower() or "0"
+    """Version strings are author-typed and inconsistent: '1.7.0' vs 'v1.7' vs '1.7.0.0'.
+
+    Drop trailing zero COMPONENTS, not trailing characters. An earlier `rstrip('.0')`
+    collapsed '1.0.0', '1.0' and '1' to the same token and reported five distinct files
+    as ambiguous — the tool inventing the ambiguity it then complained about.
+    """
+    s = (v or "").strip().lstrip("vV").lower()
+    parts = s.split(".")
+    while len(parts) > 1 and parts[-1] in ("0", ""):
+        parts.pop()
+    return ".".join(parts) or "0"
 
 
 def pick(files, want):

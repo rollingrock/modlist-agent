@@ -142,6 +142,38 @@ everyone else, and the free path is what proves the design is honest. Build the 
 first *because* the fast path is available to test against — having both on one machine is
 lucky, not a reason to skip one.
 
+## Implemented and exercised, 2026-08-16
+
+`core/modlist_agent/nexus.py` + `download.py`, driven by `mla download`. **The premium path
+ran for real**: all 10 pinned Nexus files fetched, hashed, and recorded. `mla install` then
+extracted and placed them, and the full recipe verified with every plugin loading.
+
+Corrections to what this document assumed:
+
+- **The rate limits are much higher than published.** The API returned
+  `x-rl-hourly-limit: 2000`, `x-rl-daily-limit: 20000` — not the 300/600 in the docs. The
+  whole resolve-plus-download pass used about 130. Rate limiting is a non-issue at this
+  scale; the earlier "two orders of magnitude of headroom" understated it.
+- **CDN URLs are not valid URLs as returned.** They embed the raw filename, spaces and
+  all, so they must be percent-encoded before use. Python's urllib rejects them outright,
+  which is a good failure — a lenient client would have produced confusing 404s instead.
+- **`files.json` carries no hash**, so the manifest's `sha256` can only be computed from
+  our own bytes after download. The MD5 in the CDN query string is per-download and
+  user-scoped, so it is not a substitute.
+- **One mod page can host unrelated files from other authors.** Mod 45429 turned out to be
+  a patch hub with 48 miscellaneous files, one of which was the "Bird Fix" the recipe
+  wanted. This breaks the one-mod-one-page assumption; see that entry's notes.
+
+The free path is implemented but **exercised only up to the click**: `--print-links` emits
+the file pages, and `--nxm`/`--nxm-file` accept the signed links a click produces. Parsing
+and use of `key`/`expires` is written and untested, because this account is Premium and
+manufacturing a free-account test would mean creating a second account.
+
+**Handler registration is deliberately not implemented.** Taking over the `nxm://`
+association would clobber the user's existing MO2 registration, and it is an install-time
+concern rather than a download-time one. Accepting links on the command line keeps the
+download logic testable without touching a system-wide setting.
+
 ## What remains unverified
 
 - [ ] Confirm the account is actually Premium (ask; do not probe)
