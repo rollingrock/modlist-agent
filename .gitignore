@@ -1,0 +1,13 @@
+# downloaded mod archives must never be committed
+downloads/
+*.7z
+*.zip
+*.rar
+*.ba2
+
+# generated instances
+instances/
+build/
+
+.DS_Store
+Thumbs.db
