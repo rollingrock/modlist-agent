@@ -33,18 +33,24 @@ def _norm(v: str | None) -> str:
     return ".".join(parts) or "0"
 
 
-def _newer_than(files: list[dict], file_id: int, pinned_version: str | None) -> dict | None:
-    """The newest MAIN file, if it is a genuine upgrade over the pinned one.
+def _newer_than(files: list[dict], file_id: int, pinned_version: str | None,
+                category: str = "MAIN") -> dict | None:
+    """The newest file in `category`, if it is a genuine upgrade over the pinned one.
 
-    Multi-variant mods (No DLC / DLC / Automatron, or a FOMOD alongside standalones)
-    publish siblings under the SAME version. Reporting those as "newer" is noise that
-    trains the reader to ignore the check — so a candidate whose version matches the pin
-    is treated as a variant, not an upgrade.
+    Two ways this goes wrong if left naive, both observed on this recipe:
+
+    1. Multi-variant mods (No DLC / DLC / Automatron, or a FOMOD alongside standalones)
+       publish siblings under the SAME version. Those are variants, not upgrades.
+    2. **"Newest MAIN" is sometimes the wrong file entirely.** Mod 21497's MAIN is the
+       flat Fallout 4 build; its VR build ships as OPTIONAL. Recommending the MAIN there
+       would tell a maintainer to install a non-VR mod into a VR recipe.
+
+    So the category is declarable per entry, via `drift.trackCategory`.
     """
-    mains = [f for f in files if f.get("category_name") == "MAIN"]
-    if not mains:
+    pool = [f for f in files if f.get("category_name") == category]
+    if not pool:
         return None
-    newest = max(mains, key=lambda f: f.get("uploaded_timestamp") or 0)
+    newest = max(pool, key=lambda f: f.get("uploaded_timestamp") or 0)
     if newest.get("file_id") == file_id:
         return None
     if _norm(newest.get("version")) == _norm(pinned_version):
@@ -86,7 +92,15 @@ def check_nexus(manifest, client: Client) -> list[Finding]:
                                f"pinned fileId {fid} no longer exists on mod {mid}"))
             continue
 
-        newer = _newer_than(files, fid, pinned.get("version"))
+        drift = e.raw.get("drift") or {}
+        if drift.get("ignoreNewer"):
+            # Suppression must carry a reason, so it is a decision rather than a shrug.
+            out.append(Finding(e.id, "ok", f"fileId {fid} live; upgrades ignored — "
+                                           f"{drift['ignoreNewer']}"))
+            continue
+
+        newer = _newer_than(files, fid, pinned.get("version"),
+                            drift.get("trackCategory", "MAIN"))
         if newer:
             out.append(Finding(e.id, "warn",
                                f"newer MAIN file available: {newer.get('file_id')} "

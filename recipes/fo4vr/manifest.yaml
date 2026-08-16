@@ -96,11 +96,11 @@ mods:
     tier: foundation
     required: true
     enabled: true
-    source: { type: nexus, modId: 64879, fileId: 310367, version: "1.7.0" }
+    source: { type: nexus, modId: 64879, fileId: 360587, version: "1.13.1" }
     file:
-      name: 'VR Address Library-64879-1-7-0-1713247141.7z'
-      sha256: f0dc32e0e0183baeb94b50fa68f2b3562815e83b777a19db0c286ba932b8882e
-      size: 424711
+      name: 'VR Address Library-64879-1-13-1-1751603834.7z'
+      sha256: b4ceb39f5b29975160caa9dd7f2035ff6d5e849bd18162a6313c711033b18928
+      size: 424994
     install: { root: data }
     plugins: []
     verify: [F4SE/Plugins/version-1-2-72-0.csv]   # exact filename, runtime-specific
@@ -134,15 +134,20 @@ mods:
     tier: foundation
     required: true
     enabled: true
-    source: { type: nexus, modId: 33946, fileId: 221778, version: "0.2.5.1" }
+    source: { type: nexus, modId: 33946, fileId: 399583, version: "0.3.0.1" }
     file:
-      name: 'xSE PluginPreloader F4 0.2.5.1-33946-0-2-5-1-1637347868.zip'
-      sha256: ae0b418c4acb038b8077ef33b2b29d38214a141a3dfcf412a90d9c0efe05348a
-      size: 2253885
+      name: 'xSE PluginPreloader F4VR 0.3.0.1-33946-0-3-0-1-1780775907.zip'
+      sha256: fd81a01e5e3851302c994fd9228534a202edc0c1184c01f0892a82f67e40b4ed
+      size: 17914897
     install:
       root: game                 # preloads via the game dir, not the virtual filesystem
     plugins: []
     uninstall: Delete IpHlpAPI.dll and xSE PluginPreloader.xml from the game directory.
+    notes: >
+      BUMPED 2026-08-16 from 0.2.5.1 to 0.3.0.1 — and the new file is
+      "xSE PluginPreloader F4VR", an explicitly VR-targeted build that did not exist when
+      the published lists this recipe was subtracted from were written. Strictly better
+      than the generic build we were carrying.
 
   - id: buffout-4-ng-vr
     name: Buffout 4 NG and VR
@@ -152,11 +157,11 @@ mods:
     tier: foundation
     required: true
     enabled: true
-    source: { type: nexus, modId: 64880, fileId: 268840, version: "1.31.1" }
+    source: { type: nexus, modId: 64880, fileId: 404955, version: "1.38.3" }
     file:
-      name: 'Buffout4 NG-64880-1-31-1-1677574192.7z'
-      sha256: 0e3c979197a014ac9090937fd5a283e3c5b49b884ad90aad8bdef7982d009ce9
-      size: 16566751
+      name: 'Buffout4 NG-64880-1-38-3-1785297452.7z'
+      sha256: 87fedad9ebff22ac2b119a3d4860b37af70148223004eb02f7b6738bfdf0850a
+      size: 16868339
     install: { root: data }
     plugins: []
     verify: [F4SE/Plugins/Buffout4.dll]
@@ -196,7 +201,7 @@ mods:
     file:
       name: 'nocollide actors-41866-1-1572607793.zip'
       sha256: e577ecde33ef3bb1b3eedd2ff338f0ec14e101b2632d0f3022a41052f42acbbd
-      size: null     # API reports 0; the file is a bare esp, under 1 KB
+      size: 419     # API reports 0; the file is a bare esp, under 1 KB
     install: { root: data }
     plugins: [nocollide_actors.esp]
     notes: >
@@ -269,11 +274,11 @@ mods:
     tier: fix
     required: true
     enabled: true                # no staging — see notes
-    source: { type: nexus, modId: 53464, fileId: 314905, version: "0.66" }
+    source: { type: nexus, modId: 53464, fileId: 393288, version: "0.77.12" }
     file:
-      name: 'FRIK alpha 66-53464-v0-66-1715094878.zip'
-      sha256: 7514ad8c868c7c1e752931b2ac0bebbaebed1173944507ad16b76c5c7633bb23
-      size: 3445238
+      name: 'FRIK 77.12-53464-v0-77-12-1776119663.7z'
+      sha256: 2e974e0afdfd04f18bcf62b52977ec37b6e9e6bef7b3c082da137c627480c970
+      size: 11199147
     install: { root: data }
     plugins: [FRIK.esp]   # verified on disk 2026-08-16
     upstream: C:\repos\Fallout-4-VR-Body
@@ -317,23 +322,29 @@ mods:
     source:
       type: nexus
       modId: 21497
-      fileId: 316521
-      version: "1.0.0"
+      fileId: 400967
+      version: "1"
     install: { root: data }          # standalone VR zip, not the FOMOD installer
     file:
-      name: 'MCM_VR-21497-1-0-0-1715710309.zip'
-      sha256: 40ccfe7e54f6abe90b117f674411e9cf3cc0ec3d15af8068bead474c75e83786
-      size: 374641
+      name: 'MCM VR b2 21497 1 2026-06-20T21-46Z 5sxkgZXkE.zip'
+      sha256: be9f255be05eed8090e345adcf4a61e3a8bd461fd25384876c233d0e44d37a24
+      size: 1598464
     plugins: []
+    drift:
+      trackCategory: OPTIONAL   # the VR build ships as OPTIONAL; MAIN is the flat-FO4 one
     notes: >
-      RESOLVED BY HAND 2026-08-16 — the resolver correctly refused to guess. Five files
-      share a version that normalises to "1" (1.0, 1.0.0, 1), so version carries no
-      information and only the filename distinguishes them. That is the case the schema's
-      "propose, never adopt" rule exists for.
-      Pinned to the standalone MCM_VR zip, which also avoids the FOMOD path.
-      ⚠️ NEWER FILE EXISTS: fileId 400967, "MCM VR b2", uploaded 2026-06-20 — roughly two
-      years newer than this pin. Deliberately NOT taken: a pin should be what was tested,
-      and nothing here has tested either. Worth evaluating, then promoting on purpose.
+      RESOLVED BY HAND, twice. Version carries no information on this mod — several files
+      normalise to "1" — so only the filename distinguishes them and the resolver
+      correctly refused to guess.
+      BUMPED 2026-08-16 to "MCM VR b2" (400967, uploaded 2026-06-20), replacing MCM_VR
+      1.0.0 (316521, 2024). ⚠️ Note what the MAIN file is NOT: mod 21497's current MAIN is
+      "Mod Configuration Menu 1.11.221", the FLAT Fallout 4 build versioned against the
+      next-gen runtime. Taking the newest MAIN here would install a non-VR MCM. The VR
+      build is published as an OPTIONAL file, so "newest MAIN" is actively the wrong rule
+      for this entry — a lesson for the drift checker, not just for this pin.
+      ⚠️ b2 is a beta and its version string is literally "1". Taken because it is the
+      current VR build and because promoting it is only legitimate if it is then verified,
+      which it was — mcm_vr.dll loads. Revert to 316521 if it misbehaves in play.
 
   # --- performance: the hardware-adaptive half -----------------------------
   # Installed deterministically; CONFIGURED by the agent from the real GPU/headset.
@@ -409,6 +420,11 @@ mods:
       size: 9554944
     install: { root: data }
     plugins: []
+    drift:
+      ignoreNewer: >-
+        upstream tracks the flat Fallout 4 next-gen runtime (1.11.221), which has no
+        relationship to FO4VR's frozen 1.2.72 — a newer release here is not an upgrade
+        for this recipe, and is further evidence this candidate does not belong in it
 
 # ---------------------------------------------------------------------------
 # order
