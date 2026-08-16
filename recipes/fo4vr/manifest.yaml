@@ -1,0 +1,337 @@
+# Fallout 4 VR — minimal essential base
+#
+# Schema: ../../docs/MANIFEST_SCHEMA.md
+# Rationale, exclusions and disputes: ./README.md
+#
+# ⚠️  RESEARCHED, NOT VERIFIED. Every `fileId: null` and `sha256: null` is an unresolved
+#     pin — see MANIFEST_SCHEMA.md "Pins, and what to do when one is null". Versions come
+#     from published community lists, not from live API calls. Nothing here has been
+#     installed or launched. Treat this as a reviewable draft, which is what it is.
+#
+# The exclusion rule (docs/OPEN_QUESTIONS.md #4): a mod earns a place only if it fixes
+# something BROKEN or MISSING in vanilla FO4VR. No visual overhauls, no rebalancing, no
+# new content. If `why` cannot be written without "nicer" or "I prefer", it is out.
+
+schema: 1
+
+game:
+  id: fo4vr
+  name: Fallout 4 VR
+  mo2GameName: Fallout 4 VR      # VERIFIED 2026-08-16 from MO2's own log
+  mo2ShortName: Fallout4VR       # the OTHER string: --game= arg and Documents folder name
+  iniNames: [Fallout4.ini, Fallout4Custom.ini, Fallout4Prefs.ini]   # NOT Fallout4VR*.ini
+  nexusDomain: fallout4          # FO4VR has no Nexus domain of its own
+  steamAppId: 611660
+  runtime: "1.2.72"              # verified against the local install 2026-08-16
+  dlcRequired: false             # deliberate and DEFERRED — see README.md "DLC"
+
+# ---------------------------------------------------------------------------
+# tools — infrastructure, not mods. None of this is on Nexus, which is why the
+# vertical slice can be proven before the download story is solved at all.
+# ---------------------------------------------------------------------------
+tools:
+  - id: mo2
+    name: Mod Organizer 2
+    why: The instance itself. Archive build, not the installer — no registry writes.
+    version: "2.5.2"
+    source:
+      type: github
+      repo: ModOrganizer2/modorganizer
+      tag: v2.5.2
+      asset: Mod.Organizer-2.5.2.7z
+    file:
+      # VERIFIED 2026-08-16: downloaded, hashed, extracted, launched. First real pin.
+      sha256: e6376efd87fd5ddd95aee959405e8f067afa526ea6c2c0c5aa03c5108bf4a815
+      size: 149660212
+    install: { root: instance }
+    notes: Requires Windows 10 1809+ / Windows 11 (Qt 6). Check before extracting.
+
+  - id: f4sevr
+    name: Fallout 4 Script Extender VR
+    why: >
+      Every plugin below is an F4SEVR plugin. Without it none of them load and the
+      instance is an elaborate way to run vanilla.
+    version: "0.6.21"
+    source:
+      type: http
+      url: https://f4se.silverlock.org/
+      # A verified local copy already exists at C:\repos\f4sevr (runtime 1.2.72,
+      # matching this machine's game exe). Prefer it over a fresh download for the
+      # first slice; it removes one variable.
+    file: { sha256: null }
+    install:
+      root: game                 # loads before usvfs exists — must be a real file on disk
+      files: [f4sevr_1_2_72.dll, f4sevr_loader.exe, f4sevr_steam_loader.dll, Data/Scripts/]
+    verify:
+      - runtime matches game.runtime exactly    # 1.2.72; F4SEVR supports one runtime only
+    uninstall: Delete the three files and Data/Scripts from the game directory.
+
+# ---------------------------------------------------------------------------
+# mods
+# ---------------------------------------------------------------------------
+mods:
+
+  # --- foundation: nothing else works without these ------------------------
+  - id: vr-address-library
+    name: VR Address Library for F4SEVR
+    why: >
+      Lets F4SEVR plugins resolve engine addresses by ID rather than hardcoded offsets,
+      so a plugin survives a game patch instead of crashing on load.
+    tier: foundation
+    required: true
+    enabled: true
+    source: { type: nexus, modId: 64879, fileId: null, version: "1.7.0" }
+    file: { name: null, sha256: null, size: null }
+    install: { root: data }
+    plugins: []
+    verify: [F4SE/Plugins/version-1-2-72-0.csv]   # exact filename, runtime-specific
+    notes: >
+      VERIFIED LOAD-BEARING 2026-08-16. Anything built on CommonLibF4 fails without it —
+      and it fails as a MODAL DIALOG ("REL/IDDB.cpp(82): failed to open ...csv"), i.e. a
+      silent hang with no crash and no error code. This entry is why the recipe must
+      check declared dependency files exist BEFORE launching. See docs/VERIFICATION.md.
+      The CSV is runtime-specific: version-<runtime with dashes>-0.csv.
+
+  - id: fo4vr-tools
+    name: Fallout4 VR Tools
+    why: >
+      Library other VR plugins link against. A dependency, not a feature.
+    tier: foundation
+    required: true
+    enabled: true
+    source: { type: nexus, modId: 45167, fileId: null, version: "0.1" }
+    file: { name: null, sha256: null, size: null }
+    install: { root: data }
+    plugins: []
+
+  - id: xse-plugin-preloader
+    name: xSE PluginPreloader F4
+    why: >
+      Loads F4SE plugins earlier than F4SE itself does. Required by Buffout 4 NG for
+      PDB-symbol crash logs; without it the crash logs are addresses, not names.
+    tier: foundation
+    required: true
+    enabled: true
+    source: { type: nexus, modId: 33946, fileId: null, version: "0.2.5.1" }
+    file: { name: null, sha256: null, size: null }
+    install:
+      root: game                 # preloads via the game dir, not the virtual filesystem
+    plugins: []
+    uninstall: Delete IpHlpAPI.dll and xSE PluginPreloader.xml from the game directory.
+
+  - id: buffout-4-ng-vr
+    name: Buffout 4 NG and VR
+    why: >
+      Fixes a set of engine crashes and, more importantly, writes a readable crash log
+      when it cannot. Without it a crash is a silent close to desktop.
+    tier: foundation
+    required: true
+    enabled: true
+    source: { type: nexus, modId: 64880, fileId: null, version: "1.31.1" }
+    file: { name: null, sha256: null, size: null }
+    install: { root: data }
+    plugins: []
+    verify: [F4SE/Plugins/Buffout4.dll]
+    upstream: https://github.com/alandtse/Buffout4
+    notes: >
+      RESOLVED 2026-08-16: this is alandtse's fork (github.com/alandtse/Buffout4), which
+      is the VR-capable one and the only Buffout we install. The original Buffout 4
+      (47359, Ryan-rsm-Mckenzie) is NOT installed alongside it — published lists that
+      install both are cargo-culting. Open source, so buildable from source if a pin dies.
+
+  # --- fixes: things vanilla FO4VR gets wrong or omits ---------------------
+  - id: version-check-patcher
+    name: Fallout 4 Version Check Patcher
+    why: >
+      Vanilla refuses to load plugins built against a different game version, which
+      rejects most working FO4 mods outright. Removes the check.
+    tier: fix
+    required: true
+    enabled: true
+    source: { type: nexus, modId: 42497, fileId: null, version: "1.00" }
+    file: { name: null, sha256: null, size: null }
+    install: { root: data }
+    plugins: []
+
+  - id: player-collision-options
+    name: Player Collision Options - nocollide actors
+    why: >
+      NPCs physically shove the player in VR, which moves your view without your head
+      moving. That is a nausea trigger, not a preference.
+    tier: fix
+    required: true
+    enabled: true
+    source: { type: nexus, modId: 41866, fileId: null, version: "1.0" }
+    file: { name: null, sha256: null, size: null }
+    install:
+      root: fomod
+      fomodChoices: { variant: "nocollide actors" }
+    plugins: [UNVERIFIED.esp]
+
+  - id: weapon-accuracy-redone-vr
+    name: Weapon Accuracy Redone for VR
+    why: >
+      Vanilla applies flat-screen spread and recoil to a weapon you are physically
+      aiming, so aimed shots miss where you pointed. Breaks the core VR interaction.
+    tier: fix
+    required: true
+    enabled: true
+    source: { type: nexus, modId: 40669, fileId: null, version: "1.0" }
+    file: { name: null, sha256: null, size: null }
+    install: { root: data }
+    plugins: [UNVERIFIED.esp]
+
+  - id: bird-fix
+    name: Bird Fix
+    why: Vanilla bird records cause a reproducible crash. Straight bug fix.
+    tier: fix
+    required: true
+    enabled: true
+    source: { type: nexus, modId: 45429, fileId: 204999, version: "1" }
+    file: { name: null, sha256: null, size: null }
+    install: { root: data }
+    plugins: [UNVERIFIED.esp]
+
+  # NOTE — NO SCOPE MODS. Deliberate, decided 2026-08-16. The picture-in-picture scope is
+  # being fixed AT THE ENGINE LEVEL in C:\repos\fallout4-scope-in-scope-investigation, which
+  # removes the defect every scope mod exists to work around. Better Scopes VR (61214) and
+  # See-Through-Scopes (9476) were both cut for this reason, not on the exclusion rule.
+  # FOLLOW-UP: once that fix ships as a plugin it becomes an entry here, and it is the first
+  # entry whose upstream is this developer rather than Nexus.
+
+  - id: frik
+    name: FRIK - Full Player Body with IK
+    why: >
+      Vanilla FO4VR gives the player floating hands and no body — look down and you are
+      not there. Missing, not merely improvable.
+    tier: fix
+    required: true
+    enabled: true                # no staging — see notes
+    source: { type: nexus, modId: 53464, fileId: null, version: "0.66" }
+    file: { name: null, sha256: null, size: null }
+    install: { root: data }
+    plugins: []
+    upstream: C:\repos\Fallout-4-VR-Body
+    notes: >
+      AUTHORED BY THIS PROJECT'S DEVELOPER. Not an outside dependency — source is next
+      door at C:\repos\Fallout-4-VR-Body, so a dead pin is a build, not a dead end, and
+      the `why` line is first-hand rather than inferred.
+      NOT STAGED. Published lists disable FRIK until after the vault prologue; we do not.
+      The prologue is skippable with `coc` or an alternate-start mod, and the author has
+      fixed the long-standing prologue issues besides. Staging would add a stateful,
+      mid-playthrough step to a recipe whose whole value is being reproducible.
+      For verification this costs nothing: devbench's `console` tool can run `coc` itself,
+      so the agent skips the prologue without a human touching the game.
+
+  - id: full-dialog-vr
+    name: Full Dialog VR
+    why: >
+      Vanilla shows four paraphrased prompts; VR's menu placement makes them worse.
+      Shows the line that will actually be spoken.
+    tier: fix
+    required: false                # KEPT, confirmed 2026-08-16
+    enabled: true
+    source: { type: nexus, modId: 28516, fileId: null, version: "1.1" }
+    file: { name: null, sha256: null, size: null }
+    install: { root: data }
+    plugins: [UNVERIFIED.esp]
+    postInstall:
+      - delete: interface/MultiActivateMenu.swf    # required for the VR fix
+
+  - id: mcm-vr
+    name: Mod Configuration Menu (MCM_VR)
+    why: >
+      FRIK and others are configured in-game through MCM. Without it their settings are
+      unreachable in a headset.
+    tier: fix
+    required: true
+    enabled: true
+    source:
+      type: nexus
+      modId: 21497
+      fileId: null
+      version: "1.0.0"
+    install:
+      root: fomod
+      fomodChoices: { variant: "MCM_VR" }          # VR build ONLY
+    file: { name: null, sha256: null, size: null }
+    plugins: []
+
+  # --- performance: the hardware-adaptive half -----------------------------
+  # Installed deterministically; CONFIGURED by the agent from the real GPU/headset.
+  - id: vrperfkit
+    name: vrperfkit
+    why: >
+      Upscaling and fixed-foveated rendering. FO4VR has no resolution scaling worth the
+      name, so on a weak GPU the choice is otherwise "blurry" or "20fps".
+    tier: performance
+    required: false
+    enabled: true
+    source: { type: github, repo: fholger/vrperfkit, tag: v0.3, asset: vrperfkit_v0.3.zip }
+    file: { sha256: null }
+    install: { root: game }
+    adaptive:
+      # THE AGENT DECIDES THESE. Everything above this line is pinned.
+      file: vrperfkit.yml
+      decide: [upscaling.method, upscaling.renderScale, fixedFoveated.enabled]
+      inputs: [gpu, vram, headsetRenderResolution, measuredFrametime]
+    uninstall: Delete dxgi.dll and vrperfkit.yml from the game directory.
+
+  - id: fo4vr-improvements
+    name: fo4vr_improvements (contrast adaptive sharpening)
+    why: >
+      FO4VR's TAA is extremely soft at headset resolutions. Sharpening recovers detail
+      the renderer already produced.
+    tier: performance
+    required: false
+    enabled: true
+    source:
+      type: github
+      repo: fholger/f4ovr_improvements
+      tag: vcas_v2
+      asset: fo4vr_contrast_adaptive_sharpening_v2.7z
+    file: { sha256: null }
+    install: { root: game }
+    notes: Skip on WMR or Vive Wand controllers per the author.
+
+  # --- candidates: not adjudicated. do not install without a decision. -----
+  - id: address-library-f4se
+    name: Address Library for F4SE Plugins
+    why: DISPUTED — this is the flat-FO4 library (1.10.163). May be redundant with
+         vr-address-library on a VR-only instance. Resolve before shipping.
+    tier: candidate
+    required: false
+    enabled: false
+    source: { type: nexus, modId: 47327, fileId: null, version: "1.10.163.0" }
+    file: { name: null, sha256: null, size: null }
+    install: { root: data }
+    plugins: []
+
+# ---------------------------------------------------------------------------
+# order
+# ---------------------------------------------------------------------------
+order:
+  # modlist.txt, WINNER FIRST. The writer reverses this. See MO2_PORTABLE.md §4.
+  # UNVERIFIED: derived from dependency direction, not from observed conflicts.
+  #
+  # Absent by design, not by omission: vrperfkit / fo4vr-improvements install to
+  # `root: game` and so live outside MO2's virtual filesystem; the two `candidate`
+  # entries are not installed until adjudicated. See MANIFEST_SCHEMA.md `order`.
+  install:
+    - mcm-vr
+    - frik
+    - weapon-accuracy-redone-vr
+    - player-collision-options
+    - full-dialog-vr
+    - bird-fix
+    - version-check-patcher
+    - buffout-4-ng-vr
+    - xse-plugin-preloader
+    - fo4vr-tools
+    - vr-address-library
+
+  # plugins.txt / loadorder.txt. Masters first.
+  # UNVERIFIED: plugin filenames are placeholders until each archive is inspected.
+  plugins:
+    - Fallout4.esm
+    - Fallout4_VR.esm

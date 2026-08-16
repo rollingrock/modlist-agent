@@ -1,0 +1,53 @@
+﻿{
+    "captured":  "2026-08-16",
+    "what":  "First live devbench response. FO4VR launched via portable MO2; devbench.dll loaded ONLY from mods/devbench/ via usvfs.",
+    "ping":  {
+                 "echo":  {
+
+                          },
+                 "pong":  true
+             },
+    "state":  {
+                  "exe":  "Fallout4VR.exe",
+                  "extender":  "F4SE",
+                  "frame":  6072,
+                  "game":  "fallout4",
+                  "pid":  19004,
+                  "playerLoaded":  true,
+                  "plugin":  "devbench",
+                  "port":  8931,
+                  "version":  "1.14.0",
+                  "vr":  true
+              },
+    "scene":  {
+                  "daysPassed":  1.4583333730697632,
+                  "gameHour":  11.0,
+                  "position":  {
+                                   "x":  2048.0,
+                                   "y":  2048.0,
+                                   "z":  0.0
+                               }
+              },
+    "logs":  {
+                 "count":  4,
+                 "dir":  "C:\\Users\\rolli\\Documents\\My Games/Fallout4VR/F4SE",
+                 "logs":  [
+                              {
+                                  "bytes":  528,
+                                  "file":  "devbench.log"
+                              },
+                              {
+                                  "bytes":  0,
+                                  "file":  "f4sevr.log"
+                              },
+                              {
+                                  "bytes":  954,
+                                  "file":  "f4sevr_loader.log"
+                              },
+                              {
+                                  "bytes":  0,
+                                  "file":  "f4sevr_steam_loader.log"
+                              }
+                          ]
+             }
+}

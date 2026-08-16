@@ -4,6 +4,21 @@
 
 > Seeded 2026-08-16 as an idea, not an implementation. Nothing here has been built or run.
 > The name is a placeholder — change it on day 1 if something better lands.
+>
+> **✅ First milestone passed, 2026-08-16.** A portable MO2 instance was generated from
+> nothing, Fallout 4 VR launched through it, and `devbench` — a plugin living *only* inside
+> MO2's virtual filesystem — answered on `127.0.0.1:8931` with
+> `{exe: Fallout4VR.exe, extender: F4SE, vr: true, playerLoaded: true}`. Verification runs
+> **headless** via SteamVR's null driver, so it needs no headset and can run in CI.
+> Read [`docs/VERIFICATION.md`](docs/VERIFICATION.md).
+>
+> **Research pass, 2026-08-16.** Still no code, but the unknowns are much smaller.
+> Start at [`docs/OPEN_QUESTIONS.md`](docs/OPEN_QUESTIONS.md) — it now carries a status
+> table and links to what each answer turned into:
+> [`docs/NEXUS_DOWNLOADS.md`](docs/NEXUS_DOWNLOADS.md) (the download story, decided),
+> [`docs/MO2_PORTABLE.md`](docs/MO2_PORTABLE.md) (portable MO2, verified against a real
+> 2.5.2 instance), [`docs/MANIFEST_SCHEMA.md`](docs/MANIFEST_SCHEMA.md), and a first
+> essential list at [`recipes/fo4vr/`](recipes/fo4vr/) — **researched, not verified.**
 
 ---
 
