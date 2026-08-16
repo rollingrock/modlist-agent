@@ -123,7 +123,7 @@ exists to prevent.
 
 ```yaml
 order:
-  # MO2 modlist.txt, WINNER FIRST. the writer reverses this — see MO2_PORTABLE.md §4.
+  # MO2 modlist.txt, WINNER FIRST — emitted VERBATIM, no reversal. See MO2_PORTABLE.md §4.
   install:
     - vr-address-library
     - buffout-4-ng-vr
@@ -136,9 +136,16 @@ order:
     ...
 ```
 
-`order.install` lists **our slugs**, winner first, and the writer flips it into `modlist.txt`'s
-bottom-up form. Writing it winner-first in the manifest is the readable direction; leaving the
-reversal to one tested function is the safe one.
+`order.install` lists **our slugs, winner first**, and the writer emits them into
+`modlist.txt` **in that same order** — `modlist.txt` is also winner-first, so there is no
+reversal step at all.
+
+> **Corrected 2026-08-16.** This section previously said the writer must *reverse*
+> `order.install`. That was wrong, and it was the dangerous kind of wrong: reversing a
+> winner-first list into a winner-first file hands every conflict to the loser, in an
+> instance that installs cleanly and launches fine. Measured by
+> `core/tests/test-conflict-order.ps1`; see [`MO2_PORTABLE.md §4`](MO2_PORTABLE.md).
+> **Any future change here must be re-measured, not reasoned about.**
 
 **Which mods must appear:** every mod with `install.root` of `data` or `fomod`, because those
 are the ones MO2 virtualises and therefore the ones that can conflict. Mods with

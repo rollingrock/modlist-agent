@@ -54,14 +54,23 @@ tools:
     version: "0.6.21"
     source:
       type: http
-      url: https://f4se.silverlock.org/
-      # A verified local copy already exists at C:\repos\f4sevr (runtime 1.2.72,
-      # matching this machine's game exe). Prefer it over a fresh download for the
-      # first slice; it removes one variable.
-    file: { sha256: null }
+      url: http://f4se.silverlock.org/beta/f4sevr_0_6_21.7z
+      page: https://f4se.silverlock.org/          # where the URL is published
+    file:
+      # RESOLVED 2026-08-16. Note silverlock serves plain HTTP, so the hash is not a
+      # nicety here — it is the only integrity check on the download.
+      sha256: df5b27b29007052ccee236304ffe9b029b9d2fcf8e2ee2118205a6d0be700fb3
+      size: 593089
     install:
       root: game                 # loads before usvfs exists — must be a real file on disk
+      strip: 1                   # archive has a top-level f4sevr_0_6_21/ directory
       files: [f4sevr_1_2_72.dll, f4sevr_loader.exe, f4sevr_steam_loader.dll, Data/Scripts/]
+    verifiedContents:
+      f4sevr_1_2_72.dll: 5d162dbebcea12461b7159d30860ab1edcd7ee0de8e7957a6d2d89385cbe25e2
+    notes: >
+      The local copy at C:\repos\f4sevr is byte-identical to the official archive
+      (f4sevr_1_2_72.dll sha256 matches), confirmed 2026-08-16 — so the verified first run
+      was already using this exact pinned file.
     verify:
       - runtime matches game.runtime exactly    # 1.2.72; F4SEVR supports one runtime only
     uninstall: Delete the three files and Data/Scripts from the game directory.
@@ -268,8 +277,13 @@ mods:
     required: false
     enabled: true
     source: { type: github, repo: fholger/vrperfkit, tag: v0.3, asset: vrperfkit_v0.3.zip }
-    file: { sha256: null }
-    install: { root: game }
+    file:
+      # RESOLVED 2026-08-16. v0.3 is the latest release (2022-03-18); upstream is dormant.
+      sha256: 9c1c1f022e232088275ba9d8e70f6068592d2dd6ea017d738bdee650c648032a
+      size: 406397
+    install:
+      root: game
+      files: [dxgi.dll, vrperfkit.yml]   # archive also has x86/dxgi.dll — 64-bit game, skip it
     adaptive:
       # THE AGENT DECIDES THESE. Everything above this line is pinned.
       file: vrperfkit.yml
@@ -288,11 +302,28 @@ mods:
     source:
       type: github
       repo: fholger/f4ovr_improvements
-      tag: vcas_v2
+      tag: cas_v2                # NOT "vcas_v2" — published lists have this wrong
       asset: fo4vr_contrast_adaptive_sharpening_v2.7z
-    file: { sha256: null }
-    install: { root: game }
-    notes: Skip on WMR or Vive Wand controllers per the author.
+    file:
+      # RESOLVED 2026-08-16.
+      sha256: af6bddd0a11172a246f799116785cb41dc3865d414a688be06e5278a091b2b15
+      size: 57188
+    install:
+      root: game
+      files: [openvr_api.dll, fo4_openvr.cfg]
+    overwritesStockFiles:
+      # ⚠️ THE ONLY ENTRY THAT REPLACES A SHIPPED GAME FILE. Back it up before install.
+      openvr_api.dll:
+        stockSha256: 8768bb31597f7d10af8b2a68fe543ac111032e8d91c46e57dd90bd5c7bfe12de
+        stockSize: 522528        # game's own, dated 2024-06-19
+        modSize: 188928          # this mod's, dated 2021-02-19
+    uninstall: Restore the backed-up stock openvr_api.dll; delete fo4_openvr.cfg.
+    notes: >
+      Skip on WMR or Vive Wand controllers per the author.
+      RISK, flagged 2026-08-16: this replaces the game's openvr_api.dll (2024) with a
+      2021 build — a ~334KB downgrade of the OpenVR runtime shim, not a mod file. On a
+      Quest 3 over Virtual Desktop that is exactly the layer in use. Demote to
+      `candidate` unless it is measurably worth it; the pin is resolved either way.
 
   # --- candidates: not adjudicated. do not install without a decision. -----
   - id: address-library-f4se
@@ -311,8 +342,11 @@ mods:
 # order
 # ---------------------------------------------------------------------------
 order:
-  # modlist.txt, WINNER FIRST. The writer reverses this. See MO2_PORTABLE.md §4.
-  # UNVERIFIED: derived from dependency direction, not from observed conflicts.
+  # modlist.txt, WINNER FIRST — written out verbatim, NO reversal (measured 2026-08-16 by
+  # core/tests/test-conflict-order.ps1; the earlier "reverse this" instruction was wrong and
+  # would have handed every conflict to the loser). See MO2_PORTABLE.md §4.
+  # The ORDER ITSELF is still UNVERIFIED: derived from dependency direction, not from any
+  # observed conflict. None of these mods is yet known to fight another.
   #
   # Absent by design, not by omission: vrperfkit / fo4vr-improvements install to
   # `root: game` and so live outside MO2's virtual filesystem; the two `candidate`
