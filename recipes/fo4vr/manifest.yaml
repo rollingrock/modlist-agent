@@ -247,10 +247,9 @@ mods:
     plugins: [UNVERIFIED.esp]
     notes: >
       ⚠️ HOSTING PROBLEM, found while resolving pins 2026-08-16. Mod 45429 is NOT
-      "Bird Fix" — it is "GingasVR's Reverb and Ambiance Overhaul ... " by crismanator02,
-      a page hosting 48 unrelated miscellaneous files (Frost patches, whole 280 MB MO2
-      instances, "Test", "Mod", "Merge"). Bird Fix is one stray file on someone else's
-      page.
+      "Bird Fix" — it is a reverb/ambience overhaul page that also hosts 48 unrelated
+      miscellaneous files (Frost patches, whole 280 MB MO2 instances, "Test", "Mod",
+      "Merge"). Bird Fix is one stray file among them, by a different author.
       This breaks the one-mod-one-page assumption behind the schema, and every file
       there is "version 1", so `version` carries no information and only fileId
       identifies anything. It is also a supply-chain smell: a fix distributed this way
