@@ -112,14 +112,15 @@ if ($r1 -eq $r2) {
 }
 if ($r1 -eq 'AAA' -and $r2 -eq 'BBB') {
     Write-Output 'RESULT: PASS - the FIRST line of modlist.txt WINS.'
-    Write-Output '        So order.install in the manifest (winner first) maps DIRECTLY to'
-    Write-Output '        modlist.txt with NO reversal. docs/MO2_PORTABLE.md must be corrected.'
+    Write-Output '        order.install (winner first) maps DIRECTLY to modlist.txt, no'
+    Write-Output '        reversal. This is what the code does; see Manifest.modlist_lines.'
     exit 0
 }
 if ($r1 -eq 'BBB' -and $r2 -eq 'AAA') {
     Write-Output 'RESULT: PASS - the LAST line of modlist.txt WINS.'
-    Write-Output '        So the writer MUST reverse manifest order.install (winner first)'
-    Write-Output '        when emitting modlist.txt. This is the documented assumption.'
+    Write-Output '        MO2 changed behaviour, or this instance differs. The writer would'
+    Write-Output '        have to reverse order.install. Fix Manifest.modlist_lines and'
+    Write-Output '        docs/MO2_PORTABLE.md before shipping anything built from it.'
     exit 0
 }
 Write-Output "RESULT: UNEXPECTED - r1='$r1' r2='$r2'"

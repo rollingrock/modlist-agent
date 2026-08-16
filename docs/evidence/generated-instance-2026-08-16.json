@@ -1,0 +1,29 @@
+{
+  "outcome": "pass",
+  "detail": "devbench answered on :8931 \u2014 exe=Fallout4VR.exe vr=True extender=F4SE frame=579",
+  "state": {
+    "exe": "Fallout4VR.exe",
+    "extender": "F4SE",
+    "frame": 579,
+    "game": "fallout4",
+    "pid": 29264,
+    "playerLoaded": true,
+    "plugin": "devbench",
+    "port": 8931,
+    "version": "1.14.0",
+    "vr": true
+  },
+  "ping": {
+    "echo": {},
+    "pong": true
+  },
+  "scene": {
+    "daysPassed": 1.4583333730697632,
+    "gameHour": 11.0,
+    "position": {
+      "x": 2048.0,
+      "y": 2048.0,
+      "z": 0.0
+    }
+  }
+}

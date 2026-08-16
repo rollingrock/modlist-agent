@@ -360,7 +360,8 @@ order:
     - bird-fix
     - version-check-patcher
     - buffout-4-ng-vr
-    - xse-plugin-preloader
+    # xse-plugin-preloader is deliberately absent: root=game, so it lives outside usvfs
+    # and has no conflict priority. Caught by `mla doctor` 2026-08-16.
     - fo4vr-tools
     - vr-address-library
 
