@@ -21,8 +21,8 @@ jobs:
   unit:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with: { python-version: "3.12" }
       - run: pip install pyyaml pytest
       - name: unit tests (ordering, ini encoding, archive roots)
@@ -42,8 +42,8 @@ jobs:
     # Forks do not get secrets; skip rather than fail confusingly.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with: { python-version: "3.12" }
       - run: pip install pyyaml
       - name: pins still live?
@@ -67,7 +67,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     runs-on: [self-hosted, windows, fo4vr]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: pip install pyyaml
 
       - name: doctor
@@ -111,7 +111,7 @@ jobs:
           ./core/tools/steamvr-null.ps1 -Disable
         shell: pwsh
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: verify-evidence
