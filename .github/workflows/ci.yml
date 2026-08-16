@@ -1,0 +1,118 @@
+name: ci
+
+# Two tiers, because the thing that matters most cannot run on a hosted runner.
+# See docs/CI.md for why. Short version: Fallout 4 VR is a ~25 GB paid Steam game and
+# needs a real GPU, so `verify` requires a self-hosted runner that owns the game.
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  schedule:
+    # Drift is the whole point of the scheduled run: pins rot silently, and the first
+    # symptom is otherwise a user's build failing months later.
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Tier 1 — hosted. No game, no MO2, no GPU, no headset, no secrets.
+  # ---------------------------------------------------------------------------
+  unit:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install pyyaml pytest
+      - name: unit tests (ordering, ini encoding, archive roots)
+        run: python -m pytest core/tests/test_generation.py -q
+
+      - name: manifest consistency
+        # --no-nexus so this half runs on forks and PRs with no secret available.
+        run: python core/mla.py check recipes/fo4vr/manifest.yaml --no-nexus
+
+  # ---------------------------------------------------------------------------
+  # Tier 1b — hosted, needs the API key. Metadata only: asks whether each pinned
+  # file still exists. Deliberately does NOT download; re-fetching 54 MB nightly to
+  # prove nothing changed would be a rude use of someone else's bandwidth.
+  # ---------------------------------------------------------------------------
+  drift:
+    runs-on: windows-latest
+    # Forks do not get secrets; skip rather than fail confusingly.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install pyyaml
+      - name: pins still live?
+        env:
+          NEXUS_API_KEY: ${{ secrets.NEXUS_API_KEY }}
+        run: |
+          if ("$env:NEXUS_API_KEY" -eq "") {
+            Write-Host "no NEXUS_API_KEY secret; running off-site checks only"
+            python core/mla.py check recipes/fo4vr/manifest.yaml --no-nexus
+          } else {
+            python core/mla.py check recipes/fo4vr/manifest.yaml
+          }
+        shell: pwsh
+
+  # ---------------------------------------------------------------------------
+  # Tier 2 — self-hosted. The real thing: build, download, install, launch, verify.
+  # Requires a Windows machine that owns Fallout 4 VR, with a GPU and SteamVR.
+  # Never runs on hosted runners; see docs/CI.md.
+  # ---------------------------------------------------------------------------
+  end-to-end:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: [self-hosted, windows, fo4vr]
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install pyyaml
+
+      - name: doctor
+        run: python core/mla.py doctor recipes/fo4vr/manifest.yaml
+
+      # A fresh instance every run. The clean-machine case is the ONLY one currently
+      # covered — idempotency against a half-set-up machine is untested (question #7).
+      - name: build
+        run: |
+          Remove-Item -Recurse -Force $env:MLA_INSTANCE -ErrorAction SilentlyContinue
+          python core/mla.py build recipes/fo4vr/manifest.yaml --instance $env:MLA_INSTANCE --harness $env:MLA_HARNESS
+        shell: pwsh
+
+      - name: download
+        env:
+          NEXUS_API_KEY: ${{ secrets.NEXUS_API_KEY }}
+        run: python core/mla.py download recipes/fo4vr/manifest.yaml --instance $env:MLA_INSTANCE
+        shell: pwsh
+
+      - name: install
+        run: python core/mla.py install recipes/fo4vr/manifest.yaml --instance $env:MLA_INSTANCE
+        shell: pwsh
+
+      - name: conflict order still winner-first
+        run: ./core/tools/../tests/test-conflict-order.ps1 -Instance $env:MLA_INSTANCE
+        shell: pwsh
+
+      # The null driver makes this headless. It is global state, so it is always
+      # restored, including when the run fails.
+      - name: verify (headless via SteamVR null driver)
+        run: |
+          ./core/tools/steamvr-null.ps1 -Enable
+          python core/mla.py verify recipes/fo4vr/manifest.yaml --instance $env:MLA_INSTANCE --evidence artifacts/verify.json
+        shell: pwsh
+
+      - name: restore SteamVR
+        if: always()
+        run: |
+          Get-Process Fallout4VR,ModOrganizer,vrmonitor,vrserver -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+          Start-Sleep -Seconds 6
+          ./core/tools/steamvr-null.ps1 -Disable
+        shell: pwsh
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verify-evidence
+          path: artifacts/

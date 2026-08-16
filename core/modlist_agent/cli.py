@@ -127,6 +127,46 @@ def cmd_build(args) -> int:
     return 0
 
 
+def cmd_check(args) -> int:
+    """Drift check. Designed for CI: needs no game, no MO2, no headset."""
+    from . import check as ck, nexus
+
+    m = mf.load(args.manifest, strict=False)
+    problems = mf.validate(m)
+    dead = warn = 0
+
+    print("-- manifest --")
+    for p in problems:
+        print(f"{BAD} {p}")
+    dead += len(problems)
+    if not problems:
+        print(f"{OK} internally consistent")
+
+    print("\n-- off-site sources --")
+    for f in ck.check_offsite(m):
+        print(f"{OK if f.level == 'ok' else BAD} {f.entry_id}: {f.message}")
+        dead += f.level == "dead"
+
+    if not args.no_nexus:
+        print("\n-- nexus pins --")
+        try:
+            client = nexus.Client(args.key)
+            for f in ck.check_nexus(m, client):
+                tag = {"ok": OK, "warn": WARN, "dead": BAD}[f.level]
+                print(f"{tag} {f.entry_id}: {f.message}")
+                dead += f.level == "dead"
+                warn += f.level == "warn"
+            print(f"\nrate limit remaining {client.rate.get('x-rl-hourly-remaining', '?')}")
+        except nexus.NexusError as e:
+            print(f"{WARN} skipped: {e}")
+
+    print(f"\n{dead} dead, {warn} newer-available")
+    if warn and args.strict:
+        # Opt-in: a newer file is news, not breakage. Only fail on it when asked.
+        return 1
+    return 1 if dead else 0
+
+
 def cmd_install(args) -> int:
     """Install downloaded archives into the instance. Hash-checked before anything moves."""
     from .instance import sha256
@@ -297,6 +337,13 @@ def main(argv=None) -> int:
     dw.add_argument("--write-hashes", action="store_true",
                     help="record newly computed sha256 into empty pins")
     dw.set_defaults(fn=cmd_download)
+
+    c = sub.add_parser("check", help="drift: are the pins still real? (CI-friendly)")
+    c.add_argument("manifest")
+    c.add_argument("--key", help="Nexus API key")
+    c.add_argument("--no-nexus", action="store_true", help="skip Nexus (no key available)")
+    c.add_argument("--strict", action="store_true", help="also fail when a newer file exists")
+    c.set_defaults(fn=cmd_check)
 
     i = sub.add_parser("install", help="install downloaded archives into the instance")
     i.add_argument("manifest"); i.add_argument("--instance", required=True)
