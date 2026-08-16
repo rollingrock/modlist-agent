@@ -9,5 +9,14 @@ downloads/
 instances/
 build/
 
+# credentials — the key itself lives in %USERPROFILE% and never in the repo, but a
+# committed API key is unrecoverable (revoke and regenerate is the only fix), so belt
+# and braces
+.nexus-api-key
+*.apikey
+*.secret
+.env
+.env.*
+
 .DS_Store
 Thumbs.db
