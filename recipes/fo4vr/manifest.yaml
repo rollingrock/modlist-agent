@@ -265,6 +265,47 @@ mods:
   # FOLLOW-UP: once that fix ships as a plugin it becomes an entry here, and it is the first
   # entry whose upstream is this developer rather than Nexus.
 
+  - id: truescopes-vr
+    name: True Scopes VR
+    why: >
+      FO4VR draws a scoped weapon's sight picture as a flat picture-in-picture overlay at
+      screen depth: no parallax, no world behind the lens, and a blackout imagespace over
+      everything else. Renders the real magnified view through the scope instead.
+    tier: fix
+    required: false                # the mod under test, not a load-bearing dependency
+    enabled: true
+    source:
+      type: github
+      repo: rollingrock/Fo4VR-True-Scopes
+      tag: v0.3.24
+      asset: TrueScopesVR_0.3.24.7z
+      version: "0.3.24"            # read by install_local for mods/<name>/meta.ini
+    file:
+      # RESOLVED 2026-08-29 two ways that agree: sha256 over the release archive's own
+      # bytes, and the digest GitHub publishes for that asset. NOT enforced on the --local
+      # path (install_local does no hash check), so this pin documents the bytes rather
+      # than gating them. It does gate `install` if the archive is staged into downloads/.
+      name: TrueScopesVR_0.3.24.7z
+      sha256: 436fb786f4c9636e55e07aaa9247b6f30b0ea595304ba95ec3428513df0da7fc
+      size: 4624952
+    install: { root: data }        # archive is already Data-relative: F4SE/ + Interface/
+    plugins: []                    # F4SE plugin + loose Interface SWFs, no esp
+    verify:
+      - F4SE/Plugins/truescopes_vr.dll
+      - F4SE/Plugins/TrueScopesVR.toml
+      - Interface/ScopeMenu.swf
+      - Interface/world_ScopeMenu.swf
+    upstream: https://github.com/rollingrock/Fo4VR-True-Scopes
+    notes: >
+      AUTHORED BY THIS PROJECT'S DEVELOPER — the entry the note above predicted, and the
+      first whose upstream is not Nexus. `mla download` skips it (nexus sources only) and
+      `mla install` warn-skips it unless the archive is staged into downloads/, so it is
+      installed from the build tree at tag v0.3.24, whose five files are byte-identical
+      to the release archive's contents:
+      `build --local truescopes-vr=C:\repos\Fo4VR-True-Scopes\dist\stage`.
+      truescopes_vr.pdb ships too but is deliberately absent from `verify` — symbols are
+      a convenience, not a load-bearing file.
+
   - id: frik
     name: FRIK - Full Player Body with IK
     why: >
@@ -439,6 +480,7 @@ order:
   # `root: game` and so live outside MO2's virtual filesystem; the two `candidate`
   # entries are not installed until adjudicated. See MANIFEST_SCHEMA.md `order`.
   install:
+    - truescopes-vr          # first = highest conflict priority: the mod under test
     - mcm-vr
     - frik
     - weapon-accuracy-redone-vr
