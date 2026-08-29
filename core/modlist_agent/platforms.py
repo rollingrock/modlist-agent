@@ -42,6 +42,21 @@ class Platform:
     base_plugins: tuple[str, ...] = ()
     #: extra files the extender needs in the game dir, beyond the loader
     extender_extra: tuple[str, ...] = field(default_factory=tuple)
+    #: arguments MO2 must pass the extender loader. MEASURED 2026-08-29, and the reason
+    #: this field exists: xSE picks its injection path from the game exe's PE sections. A
+    #: stock Steam exe has a `.bind` section, so xSE injects the small steam-loader shim
+    #: and the runtime DLL is LoadLibrary'd later, on the game's MAIN thread, after
+    #: ResumeThread. An exe with `.bind` stripped — any Steamless-unpacked install, which
+    #: is common on modded VR setups — is detected as a "normal exe", and xSE instead
+    #: injects the runtime on a REMOTE thread while the main thread is still suspended.
+    #: usvfs arms on ResumeThread, so that ordering puts the extender's plugin-directory
+    #: scan BEFORE the virtual filesystem exists: it enumerates the bare game directory,
+    #: finds no Data/F4SE at all, and loads ZERO plugins. The game then boots to the main
+    #: menu looking perfectly healthy, which is the worst possible failure shape.
+    #: `-forcesteamloader` overrides the detection. It is safe unconditionally: the Steam
+    #: relaunch/affinity block is gated on the DETECTED type and runs before the override
+    #: (f4se_loader/main.cpp:186 vs :257), so on a stock exe the flag is a no-op.
+    extender_args: str = ""
 
     def extender_dll(self, runtime: str) -> str:
         return self.extender_dll_fmt.format(runtime=runtime.replace(".", "_"))
@@ -58,6 +73,10 @@ FO4VR = Platform(
     extender_loader="f4sevr_loader.exe",
     extender_dll_fmt="f4sevr_{runtime}.dll",
     extender_extra=("f4sevr_steam_loader.dll",),
+    # Without this, an unpacked Fallout4VR.exe loads no F4SEVR plugins at all. See
+    # Platform.extender_args; proven on this machine 2026-08-29 against a working
+    # hand-built instance that had carried the flag all along.
+    extender_args="-forcesteamloader",
     # NOT Fallout4VR*.ini — FO4VR uses the flat-Fallout names. Verified in the MO2 plugin.
     ini_names=("Fallout4.ini", "Fallout4Custom.ini", "Fallout4Prefs.ini"),
     tuning_ini="Fallout4Custom.ini",
@@ -82,6 +101,7 @@ SKYRIMVR = Platform(
     extender_loader="sksevr_loader.exe",
     extender_dll_fmt="sksevr_{runtime}.dll",
     extender_extra=("sksevr_steam_loader.dll",),
+    extender_args="-forcesteamloader",   # SKSEVR takes the same flag. UNVERIFIED, like the rest of this table.
     ini_names=("Skyrim.ini", "SkyrimCustom.ini", "SkyrimPrefs.ini"),
     tuning_ini="SkyrimCustom.ini",
     devbench_port=8921,

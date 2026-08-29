@@ -146,7 +146,7 @@ class Instance:
         probe = self.path / "vfsprobe.ps1"
         return [
             (safe_title(p.extender_loader.split("_")[0].upper()),
-             self.game_path / p.extender_loader, ""),
+             self.game_path / p.extender_loader, p.extender_args),
             ("Vanilla", self.game_path / p.game_exe, ""),
             # Runs an arbitrary script inside usvfs without starting the game. Every
             # generated instance gets one so it can be tested — notably by

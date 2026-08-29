@@ -139,7 +139,13 @@ def run(manifest, inst, *, timeout: int = 180, launch_title: str | None = None,
         f"    2. Documents\\My Games\\{inst.platform.mo2_short_name}\\F4SE\\{log}.log —\n"
         f"       does it end mid plugin-load? that names the plugin that died\n"
         f"    3. whether a headset or the SteamVR null driver is available\n"
-        f"       (core\\tools\\steamvr-null.ps1 -Status)",
+        f"       (core\\tools\\steamvr-null.ps1 -Status)\n"
+        f"    4. does {log}.log name ZERO plugins, while the instance clearly has them?\n"
+        f"       Then the extender scanned the plugin directory before usvfs existed and\n"
+        f"       read the bare game dir. Compare {log}_loader.log against\n"
+        f"       {log}_steam_loader.log: if the plain loader's is the fresh one, the\n"
+        f"       loader needs Platform.extender_args (-forcesteamloader). The game boots\n"
+        f"       to the main menu looking perfectly healthy, which is why this one hides.",
     )
 
 
