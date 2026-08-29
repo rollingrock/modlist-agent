@@ -227,10 +227,20 @@ mods:
     install: { root: data }
     plugins: [WeaponAccuracyRedoneVR.esp]
     notes: >
-      RESOLVED 2026-08-16. Four variants exist: No DLC / DLC / Automatron / Far Harbor.
-      FO4VR ships standalone with no DLC (verified on disk), so the No DLC file is the
-      only correct one — a DLC variant would master against plugins that do not exist.
-      If the deferred DLC tier ever lands, this pin changes with it.
+      RESOLVED 2026-08-16; its REASONING CORRECTED 2026-08-29, the pin unchanged. Four
+      variants exist: No DLC / DLC / Automatron / Far Harbor. This stays on No DLC because
+      the base has to install on a bare FO4VR — not because the other masters are missing.
+      The original note justified it as "FO4VR ships standalone with no DLC (verified on
+      disk), so the No DLC file is the only correct one — a DLC variant would master
+      against plugins that do not exist." The first half is a claim about the product and
+      still holds. The second was a claim about one disk, and it is false on the machine
+      that built the verified test instance: all six official DLC sit in that game
+      directory and the engine loads them ITSELF, with no plugins.txt entry — proven from
+      a save that instance wrote, which lists them at indices 1-6, ahead of Fallout4_VR.esm
+      at 7. So the masters a DLC variant needs do exist there.
+      THE COST of staying on No DLC: DLC weapons get no accuracy fix on such a machine.
+      Which variant to ship is a decision about what this base promises, not a correction,
+      so the pin is left alone.
 
   - id: bird-fix
     name: Bird Fix

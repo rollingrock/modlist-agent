@@ -137,6 +137,13 @@ Unpinned manifests are not reproducible, which was the whole point.
 > Newly discovered constraint: **FO4VR ships with no DLC**, which excludes UFO4P, DLCVR and
 > others on dependency grounds regardless of the rule. Losing UFO4P genuinely hurts. A
 > second opt-in DLC tier is the answer, not folding it into the base.
+>
+> **Corrected 2026-08-29.** That is true of the *product*, not of every *disk*. On the
+> machine that built the verified test instance all six official DLC are present in the
+> game directory, and the engine loads them itself with no `plugins.txt` entry — so the
+> masters a DLC-dependent mod needs can very well exist. The exclusions stand, but on the
+> ground that the base must install on a bare FO4VR, not on the masters being absent,
+> which is a property of the machine rather than of FO4VR.
 
 The pitch is "a small essential base." Every such project grows until it is another 300-mod
 list. The discipline is in the exclusion rule, written down before the first PR.

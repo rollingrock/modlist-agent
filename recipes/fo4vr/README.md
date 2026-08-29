@@ -55,9 +55,17 @@ That is the thing a Wabbajack list structurally cannot do, expressed as a data s
 
 ## What is out, and why
 
-**Everything DLC-gated.** Fallout 4 VR ships standalone with no DLC, and the local install
-confirms it: `Data/` holds `Fallout4.esm` and `Fallout4_VR.esm` and nothing else. So these
-are excluded despite being genuine fixes:
+**Everything DLC-gated.** Fallout 4 VR ships standalone with no DLC, so the base cannot
+assume any. So these are excluded despite being genuine fixes:
+
+> **Corrected 2026-08-29.** This paragraph used to add "and the local install confirms it:
+> `Data/` holds `Fallout4.esm` and `Fallout4_VR.esm` and nothing else." That was one
+> machine's disk, not a property of FO4VR, and it is false on the machine that built the
+> verified test instance — whose `Data/` holds all six DLC `.esm` with their `.ba2`/`.cdx`,
+> loaded by the engine with no `plugins.txt` entry. The exclusions below still stand,
+> because the base must install on a bare FO4VR. But the reason is what the base promises,
+> not what happened to be on a disk, and "we cannot satisfy the dependency" is wrong where
+> the DLC are present — see the DLC tier question in `docs/OPEN_QUESTIONS.md` #4.
 
 | Mod | Why excluded |
 |---|---|
@@ -206,4 +214,5 @@ bootstrapping two unproven things against each other.** If it fails, the first q
 - [Florine's Fallout 4 VR modlist](https://github.com/FWDekker/fo4vr-modlist) — the most complete published FO4VR list found; the base this was subtracted from
 - [FRIK](https://www.nexusmods.com/fallout4/mods/53464), [Buffout 4 NG and VR](https://www.nexusmods.com/fallout4/mods/64880), [xSE PluginPreloader F4](https://www.nexusmods.com/fallout4/mods/33946)
 - [Fallout VR Essentials Overhaul](https://www.nexusmods.com/fallout4/mods/96013), [Fallout 4 VR Fundamental Essentials](https://www.nexusmods.com/fallout4/mods/102510) — cross-checks
-- Local: `C:\repos\f4sevr` (0.6.21), `C:\Program Files (x86)\Steam\steamapps\common\Fallout 4 VR` (1.2.72.0), `C:\Modding\mo2_sf` (MO2 2.5.2)
+- Local, 2026-08-16 machine: `C:\repos\f4sevr` (0.6.21), `C:\Program Files (x86)\Steam\steamapps\common\Fallout 4 VR` (1.2.72.0), `C:\Modding\mo2_sf` (MO2 2.5.2)
+- Local, 2026-08-29 machine (the one the verified test instance was built on): game at `H:\SteamLibrary\steamapps\common\Fallout 4 VR` (1.2.72), instance at `H:\mo2\fo4vr-test`. Naming the machine matters: the *no DLC* reading recorded above was taken on the first one and does not hold on the second, which has all six.
