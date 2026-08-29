@@ -16,7 +16,7 @@ import pytest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
-from modlist_agent import instance, manifest as mf, platforms  # noqa: E402
+from modlist_agent import cli, instance, manifest as mf, platforms  # noqa: E402
 
 MANIFEST = textwrap.dedent("""
     schema: 1
@@ -115,6 +115,59 @@ def test_game_root_requires_uninstall_note(tmp_path):
     p = tmp_path / "bad.yaml"; p.write_text(_without("uninstall: delete it"), encoding="utf-8")
     with pytest.raises(mf.ManifestError, match="requires an `uninstall` note"):
         mf.load(p)
+
+
+# --- build argument validation -----------------------------------------------------
+# Still no game, no MO2, no network: cmd_build rejects a bad argument before it looks at
+# the machine, so every one of these runs on the hosted runner like the rest of the file.
+
+@pytest.fixture
+def man_file(tmp_path):
+    p = tmp_path / "m.yaml"
+    p.write_text(MANIFEST, encoding="utf-8")
+    return p
+
+
+def test_bad_local_id_is_rejected_before_the_instance_is_written(man_file, tmp_path, capsys):
+    """2026-08-29: this check ran AFTER ensure_mo2 had extracted ~150 MB of MO2 into the
+    instance, so a mistyped id cost a download and left a half-built directory behind."""
+    inst = tmp_path / "inst"
+    rc = cli.main(["build", str(man_file), "--instance", str(inst),
+                   "--local", f"alfa={tmp_path}"])
+    assert rc == 1
+    assert "no such mod in the manifest" in capsys.readouterr().out
+    assert not inst.exists()
+
+
+def test_missing_local_source_is_rejected_before_the_instance_is_written(man_file, tmp_path,
+                                                                        capsys):
+    """The source directory used to be checked last, after build() had already written
+    modlist.txt naming a mod that was never installed."""
+    inst = tmp_path / "inst"
+    rc = cli.main(["build", str(man_file), "--instance", str(inst),
+                   "--local", f"alpha={tmp_path / 'nope'}"])
+    assert rc == 1
+    assert "does not exist" in capsys.readouterr().out
+    assert not inst.exists()
+
+
+def test_missing_harness_is_rejected_before_the_instance_is_written(man_file, tmp_path, capsys):
+    """--harness was not validated at all: a wrong path raised a raw copytree
+    FileNotFoundError, with the harness already listed first in modlist.txt."""
+    inst = tmp_path / "inst"
+    rc = cli.main(["build", str(man_file), "--instance", str(inst),
+                   "--harness", str(tmp_path / "nope")])
+    assert rc == 1
+    assert "--harness" in capsys.readouterr().out
+    assert not inst.exists()
+
+
+def test_harness_must_be_a_directory(man_file, tmp_path, capsys):
+    f = tmp_path / "devbench.zip"; f.write_text("x")
+    rc = cli.main(["build", str(man_file), "--instance", str(tmp_path / "inst"),
+                   "--harness", str(f)])
+    assert rc == 1
+    assert "is not a directory" in capsys.readouterr().out
 
 
 def test_unknown_post_install_operation_is_an_error(tmp_path):

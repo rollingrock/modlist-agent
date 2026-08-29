@@ -78,6 +78,45 @@ def cmd_doctor(args) -> int:
 def cmd_build(args) -> int:
     m = mf.load(args.manifest)
     plat = platforms.get(m.game["id"])
+
+    # Everything the operator typed is checked HERE, before ensure_mo2 pulls ~150 MB into
+    # the instance and before build() writes modlist.txt. 2026-08-29: a mistyped --local id
+    # was caught after ensure_mo2 had already run, leaving a half-built instance to delete
+    # by hand; the --local source check ran later still, after build() had written a
+    # modlist.txt naming a mod that was never installed; and --harness was not checked at
+    # all — a wrong path surfaced as a raw copytree FileNotFoundError, again with the
+    # harness already listed in modlist.txt.
+    #
+    # --local lets an entry come from a directory instead of a download. Not a testing
+    # shortcut: mods built from source (FRIK lives next door; the native scope fix will
+    # too) have no Nexus archive to pin, and this is how they get installed.
+    by_id = {e.id: e for e in m.mods}
+    locals_ = {}
+    for spec in args.local or []:
+        if "=" not in spec:
+            print(f"{BAD} --local expects id=PATH, got {spec!r}"); return 1
+        k, v = spec.split("=", 1)
+        if k not in by_id:
+            print(f"{BAD} --local {k}: no such mod in the manifest"); return 1
+        src = pathlib.Path(v)
+        if not src.exists():
+            print(f"{BAD} --local {k}: {src} does not exist"); return 1
+        if not src.is_dir():
+            # install_local is copytree: a file here fails the same way --harness did.
+            print(f"{BAD} --local {k}: {src} is not a directory"); return 1
+        locals_[k] = src
+
+    # The harness is the measuring instrument, deliberately NOT a manifest entry:
+    # a recipe that ships its own verifier is marking its own homework.
+    harness = pathlib.Path(args.harness) if args.harness else None
+    harness_name = None
+    if harness:
+        if not harness.exists():
+            print(f"{BAD} --harness {harness} does not exist"); return 1
+        if not harness.is_dir():
+            print(f"{BAD} --harness {harness} is not a directory"); return 1
+        harness_name = harness.name
+
     g = discover.find_game(plat)
     if not g:
         print(f"{BAD} game not found"); return 1
@@ -92,32 +131,12 @@ def cmd_build(args) -> int:
         print(f"fetching {mo2.name} {mo2.raw.get('version')} ...")
         inst.ensure_mo2(mo2, cache)
 
-    # --local lets an entry come from a directory instead of a download. Not a testing
-    # shortcut: mods built from source (FRIK lives next door; the native scope fix will
-    # too) have no Nexus archive to pin, and this is how they get installed.
-    by_id = {e.id: e for e in m.mods}
-    locals_ = {}
-    for spec in args.local or []:
-        if "=" not in spec:
-            print(f"{BAD} --local expects id=PATH, got {spec!r}"); return 1
-        k, v = spec.split("=", 1)
-        if k not in by_id:
-            print(f"{BAD} --local {k}: no such mod in the manifest"); return 1
-        locals_[k] = pathlib.Path(v)
-
-    harness_name = None
-    if args.harness:
-        # The harness is the measuring instrument, deliberately NOT a manifest entry:
-        # a recipe that ships its own verifier is marking its own homework.
-        harness_name = pathlib.Path(args.harness).name
     for line in inst.build(m, harness=harness_name):
         print(f"{OK} {line}")
-    if args.harness:
-        print(f"{OK} " + inst.install_dir(harness_name, pathlib.Path(args.harness),
+    if harness:
+        print(f"{OK} " + inst.install_dir(harness_name, harness,
                                           note="verification harness, not part of the recipe"))
     for k, src in locals_.items():
-        if not src.exists():
-            print(f"{BAD} --local {k}: {src} does not exist"); return 1
         print(f"{OK} {inst.install_local(by_id[k], src)} (from {src})")
     print(f"{OK} modlist.txt written winner-first, no reversal "
           f"({len(m.order.get('install', []))} entries)")
