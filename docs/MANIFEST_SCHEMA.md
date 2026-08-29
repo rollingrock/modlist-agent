@@ -64,6 +64,9 @@ the real `Fallout4VR.exe` version against this before doing anything else.
     root: data                    # where the archive's root maps to. see below
     strip: 0                      # leading path components to drop
 
+  postInstall:                    # optional. applied to mods/<name>/ after it lands
+    - delete: interface/MultiActivateMenu.swf
+
   plugins: []                     # esm/esp/esl this mod contributes, if any
 
   verify:                         # files that must exist post-install, Data-relative
@@ -118,6 +121,41 @@ install:
 This keeps a judgement call out of the agent's hands. Wrong FOMOD choices produce a build
 that installs cleanly and misbehaves later — exactly the failure class the deterministic half
 exists to prevent.
+
+## `postInstall`
+
+Steps applied to `mods/<name>/` **after** the mod is placed there, for the case where an
+archive ships a file that must not be present:
+
+```yaml
+postInstall:
+  - delete: interface/MultiActivateMenu.swf    # required for the VR fix
+```
+
+**`delete` is the only operation.** Adding another means implementing it in
+`Instance._post_install` and listing it in `manifest.POST_INSTALL_OPS` in the same commit;
+`validate()` rejects any operation it does not recognise. An op that parses and does nothing
+is worse than one that fails — it reads as a fix already in place. That is not hypothetical:
+`postInstall` was written into this recipe on 2026-08-16 and implemented nowhere until
+2026-08-29.
+
+**It runs on every install, not once.** Installing a mod is `rmtree` + `copytree` from the
+archive, so anything a previous run deleted is back. Deleting the file by hand is therefore
+not a fix; it survives exactly until the next `mla install`.
+
+**Paths are relative to the mod directory** — i.e. Data-relative, the same spelling `verify`
+uses. Written with forward slashes and matched case-insensitively, because the manifest says
+`interface/` where the archive says `Interface/`. A path that would leave the mod directory
+(absolute, drive-lettered, or containing `..`) is rejected.
+
+**An absent target is a hard failure**, not a no-op. The archive is pinned by hash, so what
+it contains is deterministic: a missing target means the declaration no longer describes it,
+and the alternative is an `[ ok ] installed …` line over a fix that never happened. What was
+deleted is named in that line.
+
+**Not allowed on `root: game`.** A delete inside the user's game directory is outside the
+instance, outside the `.bak` that `root: game` installs take, and outside anything the
+`uninstall` note can undo.
 
 ## `order`
 
@@ -187,5 +225,6 @@ Cheap checks that pay for themselves (open question #3):
 - every mod appears exactly once in `order.install`
 - every `source` resolves — link still alive, `fileId` still present on the mod page
 - no duplicate `id` or `name`
+- every `postInstall` step names an operation the installer actually implements
 - `runtime` still matches the current live game version (a warning, not a failure — it means
   a game update landed and the recipe needs a look)

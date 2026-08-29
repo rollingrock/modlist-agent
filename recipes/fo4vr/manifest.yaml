@@ -349,6 +349,10 @@ mods:
     install: { root: data }
     plugins: []   # none — interface + strings replacer, verified on disk 2026-08-16
     postInstall:
+      # Declared 2026-08-16, implemented 2026-08-29 — in between the key parsed and did
+      # nothing. The archive really does ship this file (`7z l`), so the operator deleted
+      # it by hand and the next `mla install`, which rmtree+copytrees the mod out of the
+      # archive, put it straight back. See docs/MANIFEST_SCHEMA.md `postInstall`.
       - delete: interface/MultiActivateMenu.swf    # required for the VR fix
 
   - id: mcm-vr

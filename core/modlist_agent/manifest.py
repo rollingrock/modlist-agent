@@ -16,6 +16,11 @@ import yaml
 
 VIRTUALISED_ROOTS = {"data", "fomod"}
 
+#: postInstall operations the installer implements. The schema decides what a manifest may
+#: say; instance.py decides what it does. Adding one here without adding it there is the
+#: defect this list exists to stop shipping twice.
+POST_INSTALL_OPS = {"delete"}
+
 
 class ManifestError(Exception):
     """A manifest problem the user must fix. Never auto-corrected."""
@@ -176,5 +181,48 @@ def validate(m: Manifest) -> list[str]:
             # These are the only files we leave outside the instance, so an uninstall
             # note is the difference between reversible and permanent.
             out.append(f"{e.id}: root=game requires an `uninstall` note")
+        out += _post_install_problems(e, root)
 
+    return out
+
+
+def _post_install_problems(e: Entry, root: str) -> list[str]:
+    """Check `postInstall`, the key that spent a fortnight declared and unimplemented.
+
+    full-dialog-vr has carried `postInstall: - delete: interface/MultiActivateMenu.swf`
+    since 2026-08-16 and nothing read the key, so the step was done by hand and undone by
+    the next install. A key that parses and does nothing is worse than one that fails: it
+    reads as a fix already in place. Hence a schema check here and an implementation in
+    instance.py, in the same commit.
+    """
+    steps = e.raw.get("postInstall")
+    if steps is None:
+        return []
+    if not isinstance(steps, list) or not steps:
+        return [f"{e.id}: postInstall must be a non-empty list of steps"]
+
+    out: list[str] = []
+    if root in ("game", "instance"):
+        # root=game copies into the user's game directory. A delete there removes a file
+        # this recipe never put there — outside the instance, outside the backup
+        # _install_into_game takes, and outside anything `uninstall` can restore.
+        # root=instance is skipped by cmd_install entirely, so a step declared there would
+        # be the same silent no-op this key was added to stop being.
+        out.append(f"{e.id}: postInstall is not supported for root={root} — root=game "
+                   "would delete from the game directory, outside the instance and any "
+                   "backup, and root=instance entries are skipped by `install` entirely")
+    for step in steps:
+        if not isinstance(step, dict) or len(step) != 1:
+            out.append(f"{e.id}: each postInstall step is a single `op: path` mapping, "
+                       f"got {step!r}")
+            continue
+        (op, rel), = step.items()
+        if op not in POST_INSTALL_OPS:
+            out.append(f"{e.id}: unknown postInstall operation {op!r} "
+                       f"(implemented: {', '.join(sorted(POST_INSTALL_OPS))})")
+            continue
+        s = str(rel or "").strip().replace("\\", "/")
+        if not s or s.startswith("/") or ":" in s or ".." in s.split("/"):
+            out.append(f"{e.id}: postInstall {op} wants a path relative to mods/<name>/ "
+                       f"that stays inside it, got {rel!r}")
     return out

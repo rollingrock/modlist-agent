@@ -97,6 +97,45 @@ def safe_title(title: str) -> str:
     return "".join(c for c in title.replace(" ", "") if c.isalnum() or c in "-_")
 
 
+# --- manifest-spelled paths, resolved against a real extracted mod -------------------
+
+def mod_relative_parts(rel: str) -> list[str]:
+    """Split a manifest-spelled relative path into components, refusing any escape.
+
+    `postInstall: delete` takes its path out of a text file and unlinks what it names, so
+    the one thing that must not be expressible is leaving mods/<name>/.
+    """
+    s = str(rel).strip().replace("\\", "/")
+    parts = [p for p in s.split("/") if p not in ("", ".")]
+    if not parts or s.startswith("/") or ":" in s or ".." in parts:
+        raise ValueError(
+            f"{rel!r} must be a relative path that stays inside the mod directory")
+    return parts
+
+
+def resolve_insensitive(root: pathlib.Path, parts: list[str]) -> pathlib.Path | None:
+    """Walk `parts` under `root`, matching each component case-insensitively.
+
+    The manifest writes `interface/MultiActivateMenu.swf`; the archive ships
+    `Interface/MultiActivateMenu.swf`. verify.preflight gets away with only swapping the
+    separators because NTFS folds the case for it, but that makes the answer depend on the
+    filesystem the code is sitting on. Fold it here instead, so the same manifest resolves
+    the same way everywhere. Returns None when a component has no match.
+    """
+    cur = root
+    for part in parts:
+        if not cur.is_dir():
+            return None
+        # Listed, not asked. A `(cur / part).exists()` short-circuit lets NTFS answer
+        # first, which is both the dependency this function exists to remove and
+        # untestable on windows-latest — the only runner the hosted tier has.
+        hits = [c for c in cur.iterdir() if c.name.lower() == part.lower()]
+        if len(hits) != 1:             # 0 = absent; >1 only on a case-sensitive fs
+            return None
+        cur = hits[0]
+    return cur
+
+
 class Instance:
     def __init__(self, path: pathlib.Path, platform, game_path: pathlib.Path,
                  profile: str = "Default"):
@@ -280,6 +319,15 @@ class Instance:
         extract(archive, work, strip=entry.install.get("strip", 0))
 
         if entry.root == "game":
+            if entry.raw.get("postInstall"):
+                # Refused, not implemented. A delete here would remove a file from the
+                # user's game directory: outside the instance, outside the .bak
+                # _install_into_game takes, and outside anything the `uninstall` note can
+                # restore. manifest.validate() says the same, but `install` loads the
+                # manifest non-strict, so the check has to exist on this side too.
+                raise SystemExit(
+                    f"{entry.id}: postInstall is not supported for root=game — it would "
+                    "delete from the game directory, outside the instance")
             return self._install_into_game(entry, work)
 
         root = self.detect_data_root(work)
@@ -287,10 +335,12 @@ class Instance:
         if dest.exists():
             shutil.rmtree(dest)
         shutil.copytree(root, dest)
+        removed = self._post_install(entry, dest)
         self._write_meta(entry, dest)
         rel = root.relative_to(work)
         return (f"installed {entry.name}"
-                + (f" (data root: {rel})" if str(rel) != "." else ""))
+                + (f" (data root: {rel})" if str(rel) != "." else "")
+                + (f"; postInstall deleted {', '.join(removed)}" if removed else ""))
 
     def _install_into_game(self, entry, work: pathlib.Path) -> str:
         """Copy declared files into the game directory, backing up anything it replaces.
@@ -324,6 +374,49 @@ class Instance:
         if backed:
             msg += f"; backed up {', '.join(backed)}"
         return msg
+
+    def _post_install(self, entry, dest: pathlib.Path) -> list[str]:
+        """Apply `postInstall` to a mod that has just been placed under mods/.
+
+        Runs on EVERY install, because every install is rmtree + copytree from the source:
+        whatever a previous run removed is back. Not hypothetical — full-dialog-vr has
+        declared `postInstall: - delete: interface/MultiActivateMenu.swf` since
+        2026-08-16 and nothing anywhere read the key, so on 2026-08-29 the operator
+        deleted the file by hand and the next `mla install` copied it straight back in.
+
+        `delete` is the only operation, because it is the only one anybody declared.
+        manifest.validate() checks the same rules up front, but `mla install` loads the
+        manifest non-strict, so the checks below are the ones that actually run.
+        """
+        removed: list[str] = []
+        for step in entry.raw.get("postInstall") or []:
+            if not isinstance(step, dict) or len(step) != 1:
+                raise SystemExit(f"{entry.id}: each postInstall step is a single "
+                                 f"`op: path` mapping, got {step!r}")
+            (op, rel), = step.items()
+            if op != "delete":
+                raise SystemExit(
+                    f"{entry.id}: postInstall operation {op!r} is declared and not "
+                    "implemented. Refusing to install a mod whose recipe asks for "
+                    "something this build cannot do.")
+            try:
+                parts = mod_relative_parts(rel)
+            except ValueError as exc:
+                raise SystemExit(f"{entry.id}: postInstall delete {exc}") from None
+            target = resolve_insensitive(dest, parts)
+            if target is None:
+                # Not treated as already-done. The source is pinned by hash, so what it
+                # contains is deterministic: an absent target means the declaration has
+                # stopped describing it, and continuing would print `[ ok ] installed
+                # <mod>` over a fix that was never applied.
+                raise SystemExit(
+                    f"{entry.id}: postInstall delete {rel!r} — not present in "
+                    f"mods/{entry.name}/. Either the path is wrong or the source changed; "
+                    f"refusing to report a fix that did not happen. mods/{entry.name}/ is "
+                    "left in place for inspection.")
+            shutil.rmtree(target) if target.is_dir() else target.unlink()
+            removed.append(str(rel))
+        return removed
 
     def _write_meta(self, entry, dest: pathlib.Path) -> None:
         meta = [
@@ -363,6 +456,9 @@ class Instance:
         if dest.exists():
             shutil.rmtree(dest)
         shutil.copytree(src, dest)
+        # Same rmtree + copytree, so the same restoration problem: a --local mod gets the
+        # same postInstall treatment as one that came out of an archive.
+        removed = self._post_install(entry, dest)
         meta = [
             "[General]",
             f"gameName={self.platform.mo2_short_name}",
@@ -376,4 +472,5 @@ class Instance:
                      f"1\\modid={entry.source['modId']}",
                      f"1\\fileid={entry.source['fileId']}"]
         (dest / "meta.ini").write_text("\n".join(meta) + "\n", encoding="utf-8")
-        return f"installed {entry.name}"
+        return (f"installed {entry.name}"
+                + (f"; postInstall deleted {', '.join(removed)}" if removed else ""))

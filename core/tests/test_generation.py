@@ -33,6 +33,8 @@ MANIFEST = textwrap.dedent("""
         enabled: true
         source: { type: nexus, modId: 1, fileId: 2, version: "1" }
         install: { root: data }
+        postInstall:
+          - delete: interface/MultiActivateMenu.swf
       - id: beta
         name: Beta Mod
         why: fixes another thing
@@ -115,6 +117,25 @@ def test_game_root_requires_uninstall_note(tmp_path):
         mf.load(p)
 
 
+def test_unknown_post_install_operation_is_an_error(tmp_path):
+    # An operation nobody implemented would parse, do nothing, and read as a fix in
+    # place — which is exactly how `delete` itself shipped for a fortnight.
+    bad = MANIFEST.replace("- delete: interface/", "- move: interface/")
+    p = tmp_path / "bad.yaml"; p.write_text(bad, encoding="utf-8")
+    with pytest.raises(mf.ManifestError, match="unknown postInstall operation"):
+        mf.load(p)
+
+
+def test_post_install_on_a_game_root_entry_is_an_error(tmp_path):
+    # gamma is root=game. A delete there lands in the user's game directory: outside the
+    # instance, outside the .bak, outside anything the `uninstall` note can restore.
+    bad = MANIFEST.replace("uninstall: delete it",
+                           "uninstall: delete it\n    postInstall:\n      - delete: x.dll")
+    p = tmp_path / "bad.yaml"; p.write_text(bad, encoding="utf-8")
+    with pytest.raises(mf.ManifestError, match="not supported for root=game"):
+        mf.load(p)
+
+
 # --- the ini encoding traps --------------------------------------------------------
 
 def test_bytearray_doubles_backslashes():
@@ -172,6 +193,77 @@ def test_detect_data_root(tmp_path, layout, expect):
         p.write_text("x")
     got = instance.Instance.detect_data_root(tmp_path)
     assert got.relative_to(tmp_path).as_posix() == pathlib.PurePath(expect).as_posix()
+
+
+# --- postInstall -------------------------------------------------------------------
+
+def _extracted_mod(tmp_path, with_target=True):
+    """A mod directory the way an archive really ships one: Windows-cased Interface/."""
+    src = tmp_path / "src"
+    (src / "Interface").mkdir(parents=True)
+    (src / "Interface" / "Keep.swf").write_text("keep")
+    if with_target:
+        (src / "Interface" / "MultiActivateMenu.swf").write_text("delete me")
+    return src
+
+
+def _built(tmp_path, man):
+    game = tmp_path / "game"; game.mkdir()
+    inst = instance.Instance(tmp_path / "inst", platforms.FO4VR, game)
+    inst.build(man)
+    return inst
+
+
+def test_post_install_delete_runs_on_every_install(tmp_path, man):
+    """The key was declared in the manifest and implemented nowhere.
+
+    Installing is rmtree + copytree from the source EVERY time, so deleting the file by
+    hand survives exactly until the next install. Installing twice is the test. The
+    manifest spells the path `interface/...` and the source ships `Interface/...`; that
+    mismatch is the real one, out of full-dialog-vr.
+    """
+    inst = _built(tmp_path, man)
+    src = _extracted_mod(tmp_path)
+    dest = inst.mods / "Alpha Mod"
+    for _ in range(2):
+        msg = inst.install_local(man.mods[0], src)
+        assert not (dest / "Interface" / "MultiActivateMenu.swf").exists()
+        assert (dest / "Interface" / "Keep.swf").exists()   # only what was declared goes
+        # A silent delete is the class of thing this repo dislikes: say what was removed,
+        # in the line the operator actually reads.
+        assert "postInstall deleted interface/MultiActivateMenu.swf" in msg
+
+
+def test_post_install_delete_fails_when_the_target_is_absent(tmp_path, man):
+    """No-op is not on the menu. The source is pinned by hash, so an absent target means
+    the declaration stopped describing it — and the alternative is an `[ ok ] installed`
+    line over a fix that never happened."""
+    inst = _built(tmp_path, man)
+    with pytest.raises(SystemExit, match="MultiActivateMenu"):
+        inst.install_local(man.mods[0], _extracted_mod(tmp_path, with_target=False))
+
+
+def test_post_install_paths_are_case_folded_here_not_by_the_filesystem(tmp_path):
+    # NTFS would fold `interface` onto `Interface` for us, which is why verify.preflight
+    # gets away with only swapping separators. Doing it ourselves keeps the answer the
+    # same wherever this runs.
+    (tmp_path / "Interface").mkdir()
+    (tmp_path / "Interface" / "MultiActivateMenu.swf").write_text("x")
+    parts = instance.mod_relative_parts("interface/MultiActivateMenu.swf")
+    got = instance.resolve_insensitive(tmp_path, parts)
+    # Not "it found something" — NTFS resolves `interface/` on its own. The components
+    # come back with their ON-DISK spelling, which only happens if the fold was ours.
+    assert got is not None
+    assert got.relative_to(tmp_path).parts == ("Interface", "MultiActivateMenu.swf")
+    assert instance.resolve_insensitive(tmp_path, ["interface", "absent.swf"]) is None
+
+
+def test_post_install_paths_cannot_leave_the_mod_directory():
+    # Not a bug that has happened: `delete` takes a path out of a text file and unlinks
+    # what it names, and one level up is the rest of the instance.
+    for bad in ("../../Fallout4VR.exe", "/etc/passwd", r"C:\Windows\notepad.exe", ""):
+        with pytest.raises(ValueError):
+            instance.mod_relative_parts(bad)
 
 
 # --- platform seam -----------------------------------------------------------------
