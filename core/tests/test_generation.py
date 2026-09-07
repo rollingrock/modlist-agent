@@ -370,11 +370,11 @@ def test_wants_file_without_a_declaration_takes_everything():
 
 def _seed_inis(tmp_path, monkeypatch, platform, game_files, doc_files):
     from modlist_agent import discover, instance as inst_mod
-    game = tmp_path / "game"; game.mkdir()
+    game = tmp_path / "game"; game.mkdir(parents=True)
     for n, body in game_files.items():
         (game / n).parent.mkdir(parents=True, exist_ok=True)
         (game / n).write_text(body, encoding="utf-8")
-    docs = tmp_path / "docs"; docs.mkdir()
+    docs = tmp_path / "docs"; docs.mkdir(parents=True)
     for n, body in doc_files.items():
         (docs / n).write_text(body, encoding="utf-8")
     monkeypatch.setattr(discover, "documents_dir", lambda p: docs)
@@ -474,3 +474,22 @@ def test_undeclared_plugins_keep_install_order_at_the_end(tmp_path, monkeypatch)
     assert "aaa.esp, zzz.esp" not in doc
     got = _plugins_txt(tmp_path, monkeypatch, doc)
     assert got == ["*Fallout4.esm", "*Fallout4_VR.esm", "*zzz.esp", "*aaa.esp"]
+
+
+def test_the_tuning_ini_is_never_imported_from_documents(tmp_path, monkeypatch, man):
+    """It carries bInvalidateOlderFiles; both games have a stray one in Documents.
+
+    Adding the Documents fallback without guarding this copied 41 bytes of window
+    position over the stub on every fresh profile, silently dropping the settings that
+    make loose mod files load.
+    """
+    from modlist_agent import platforms, instance as inst_mod
+    for pid in ("fo4", "fo4vr"):
+        p = platforms.get(pid)
+        i = _seed_inis(tmp_path / pid, monkeypatch, p,
+                       {"Fallout4_Default.ini": "template"},
+                       {p.tuning_ini: "[Display]\niLocation X=0\n"})
+        i._write_profile(man)
+        body = (i.profile_dir / p.tuning_ini).read_text()
+        assert "bInvalidateOlderFiles" in body, pid
+        assert "iLocation" not in body, pid

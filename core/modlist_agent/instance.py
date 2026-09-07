@@ -330,9 +330,19 @@ class Instance:
             if target.exists():
                 continue
             candidates = [self.game_path / name]
-            if name in templates:
-                candidates.append(self.game_path / templates[name])
-            candidates.append(docs / name)
+            if name != p.tuning_ini:
+                # THE TUNING INI IS OURS AND IS NEVER IMPORTED. It is the adaptive half,
+                # and it carries the archive-invalidation settings that make loose mod
+                # files load at all. Both games have a Fallout4Custom.ini sitting in
+                # Documents — 41 bytes of window position on this machine — so adding the
+                # Documents fallback without this guard copied that over the stub and
+                # dropped bInvalidateOlderFiles/sResourceDataDirsFinal on any FRESH
+                # profile, for FO4VR as much as flat. Caught before it shipped only
+                # because the existing instances already had the file and skipped the
+                # branch. Rule 1 stays: if a game ever ships one, that still wins.
+                if name in templates:
+                    candidates.append(self.game_path / templates[name])
+                candidates.append(docs / name)
             shipped = next((c for c in candidates if c.exists() and c.is_file()), None)
             if shipped:
                 shutil.copy2(shipped, target)
