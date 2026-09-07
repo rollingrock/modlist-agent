@@ -10,6 +10,7 @@ a mod is placing a Data-relative directory under mods/.
 from __future__ import annotations
 
 import hashlib
+import os
 import pathlib
 import shutil
 import subprocess
@@ -17,7 +18,47 @@ import urllib.request
 
 from . import discover
 
-SEVENZIP = pathlib.Path(r"C:\Program Files\7-Zip\7z.exe")
+#: Checked in order; the first that exists wins. `MLA_7ZIP` is the escape hatch for an
+#: install this list does not know about. The first entry was the ONLY entry until
+#: 2026-09-07, which quietly made "someone else could run this" untrue for anyone who
+#: installed 7-Zip per-user or anywhere else — found by asking what a second machine
+#: would hit rather than by a second machine hitting it.
+SEVENZIP_CANDIDATES = (
+    r"C:\Program Files\7-Zip\7z.exe",
+    r"C:\Program Files (x86)\7-Zip\7z.exe",
+    r"%LOCALAPPDATA%\Programs\7-Zip\7z.exe",
+)
+
+
+def sevenzip() -> pathlib.Path:
+    """Locate 7z.exe, or explain precisely what was tried.
+
+    Order: $MLA_7ZIP, then the known install locations, then PATH. PATH comes last
+    because a 7za.exe on PATH is the reduced standalone build, which is a fine fallback
+    but a poor first choice when the full extractor is sitting in Program Files.
+    """
+    env = os.environ.get("MLA_7ZIP")
+    if env:
+        # An explicit override that does not resolve is an error, never a silent
+        # fallback — the operator said where it is and was wrong, and quietly using a
+        # different binary than the one named is how a build becomes unreproducible.
+        p = pathlib.Path(os.path.expandvars(env))
+        if p.is_file():
+            return p
+        raise SystemExit(f"MLA_7ZIP points at {p}, which is not a file")
+    for cand in SEVENZIP_CANDIDATES:
+        p = pathlib.Path(os.path.expandvars(cand))
+        if p.is_file():
+            return p
+    for exe in ("7z", "7za"):
+        found = shutil.which(exe)
+        if found:
+            return pathlib.Path(found)
+    raise SystemExit(
+        "7-Zip not found. Tried $MLA_7ZIP, then:\n  "
+        + "\n  ".join(os.path.expandvars(c) for c in SEVENZIP_CANDIDATES)
+        + "\nthen 7z/7za on PATH. Install 7-Zip, or set MLA_7ZIP to its 7z.exe."
+    )
 
 
 def sha256(path: pathlib.Path) -> str:
@@ -52,14 +93,13 @@ def fetch(url: str, dest: pathlib.Path, expect_sha256: str | None = None) -> pat
 
 
 def extract(archive: pathlib.Path, dest: pathlib.Path, strip: int = 0) -> None:
-    if not SEVENZIP.exists():
-        raise SystemExit(f"7-Zip not found at {SEVENZIP}")
+    zip_exe = sevenzip()
     dest.mkdir(parents=True, exist_ok=True)
     staging = dest if not strip else dest.parent / (dest.name + ".staging")
     if strip:
         shutil.rmtree(staging, ignore_errors=True)
         staging.mkdir(parents=True)
-    subprocess.run([str(SEVENZIP), "x", str(archive), f"-o{staging}", "-y"],
+    subprocess.run([str(zip_exe), "x", str(archive), f"-o{staging}", "-y"],
                    check=True, capture_output=True)
     if strip:
         src = staging

@@ -18,6 +18,42 @@ DEFAULT_STEAM = [
 ]
 
 
+def steam_from_registry() -> list[pathlib.Path]:
+    """Where Steam says it is, which is the only answer that is not a guess.
+
+    `libraryfolders.vdf` finds games on any drive, and always has — but it is read out of
+    the Steam INSTALL directory, and that was only ever looked for on C:. So a machine
+    with Steam itself on another drive found no libraries at all and reported the game
+    missing, with nothing pointing at why. Both hives are consulted because the 32-bit
+    client writes HKCU\\Software\\Valve\\Steam\\SteamPath (forward slashes) and the
+    installer writes HKLM\\...\\WOW6432Node\\Valve\\Steam\\InstallPath.
+
+    Returns [] on any failure, including a non-Windows host: this is a hint that improves
+    discovery, never a dependency of it.
+    """
+    try:
+        import winreg
+    except ImportError:
+        return []
+    out: list[pathlib.Path] = []
+    for hive, key, value in (
+        (winreg.HKEY_CURRENT_USER, r"Software\Valve\Steam", "SteamPath"),
+        (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\Valve\Steam", "InstallPath"),
+        (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Valve\Steam", "InstallPath"),
+    ):
+        try:
+            with winreg.OpenKey(hive, key) as k:
+                raw, _ = winreg.QueryValueEx(k, value)
+        except OSError:
+            continue
+        if not raw:
+            continue
+        p = pathlib.Path(str(raw).replace("/", "\\"))
+        if p.exists() and p not in out:
+            out.append(p)
+    return out
+
+
 @dataclass
 class GameInstall:
     path: pathlib.Path
@@ -29,9 +65,11 @@ class GameInstall:
 def steam_roots() -> list[pathlib.Path]:
     """Every Steam library on the machine, from libraryfolders.vdf."""
     roots: list[pathlib.Path] = []
-    for base in DEFAULT_STEAM:
-        b = pathlib.Path(base)
-        if not b.exists():
+    # Registry first, hardcoded paths second. The defaults stay as a fallback for a
+    # machine whose registry is unhelpful, but they are no longer the only answer.
+    bases = steam_from_registry() + [pathlib.Path(b) for b in DEFAULT_STEAM]
+    for b in bases:
+        if not b.exists() or b in roots:
             continue
         roots.append(b)
         vdf = b / "steamapps" / "libraryfolders.vdf"

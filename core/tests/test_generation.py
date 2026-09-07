@@ -536,3 +536,68 @@ def test_a_reachable_url_short_circuits(monkeypatch):
     monkeypatch.setattr(ck, "_head_once", lambda u: (calls.append(u), ("ok", "200"))[1])
     assert ck._head("http://example.invalid/x.7z", attempts=3)[0] == "ok"
     assert len(calls) == 1
+
+
+# --- portability: what a SECOND machine would hit ------------------------------------
+# Both of these were single hardcoded paths that happened to be right on the machine the
+# project was written on, which is the least reliable kind of correct.
+
+def test_mla_7zip_overrides_everything(tmp_path, monkeypatch):
+    from modlist_agent import instance as inst_mod
+    fake = tmp_path / "7z.exe"; fake.write_text("x", encoding="utf-8")
+    monkeypatch.setenv("MLA_7ZIP", str(fake))
+    assert inst_mod.sevenzip() == fake
+
+
+def test_a_wrong_mla_7zip_is_an_error_not_a_silent_fallback(tmp_path, monkeypatch):
+    """The operator named a binary and was wrong; quietly using a different one is worse."""
+    from modlist_agent import instance as inst_mod
+    monkeypatch.setenv("MLA_7ZIP", str(tmp_path / "nope.exe"))
+    with pytest.raises(SystemExit) as e:
+        inst_mod.sevenzip()
+    assert "MLA_7ZIP" in str(e.value)
+
+
+def test_sevenzip_falls_back_to_path(tmp_path, monkeypatch):
+    from modlist_agent import instance as inst_mod
+    monkeypatch.delenv("MLA_7ZIP", raising=False)
+    monkeypatch.setattr(inst_mod, "SEVENZIP_CANDIDATES", (str(tmp_path / "absent.exe"),))
+    monkeypatch.setattr(inst_mod.shutil, "which",
+                        lambda n: str(tmp_path / "on-path.exe") if n == "7z" else None)
+    assert inst_mod.sevenzip() == tmp_path / "on-path.exe"
+
+
+def test_sevenzip_missing_names_everything_it_tried(tmp_path, monkeypatch):
+    from modlist_agent import instance as inst_mod
+    monkeypatch.delenv("MLA_7ZIP", raising=False)
+    monkeypatch.setattr(inst_mod, "SEVENZIP_CANDIDATES", (str(tmp_path / "absent.exe"),))
+    monkeypatch.setattr(inst_mod.shutil, "which", lambda n: None)
+    with pytest.raises(SystemExit) as e:
+        inst_mod.sevenzip()
+    msg = str(e.value)
+    assert "absent.exe" in msg and "MLA_7ZIP" in msg
+
+
+def test_steam_roots_uses_the_registry_and_dedupes(tmp_path, monkeypatch):
+    """Games on other drives always worked; STEAM on another drive did not."""
+    from modlist_agent import discover
+    elsewhere = tmp_path / "SteamOnD"
+    (elsewhere / "steamapps").mkdir(parents=True)
+    monkeypatch.setattr(discover, "steam_from_registry", lambda: [elsewhere, elsewhere])
+    monkeypatch.setattr(discover, "DEFAULT_STEAM", [str(tmp_path / "nonexistent")])
+    assert discover.steam_roots() == [elsewhere]
+
+
+def test_steam_from_registry_never_raises(monkeypatch):
+    """It is a hint that improves discovery, never a dependency of it."""
+    from modlist_agent import discover
+    import builtins
+    real = builtins.__import__
+
+    def no_winreg(name, *a, **k):
+        if name == "winreg":
+            raise ImportError("no winreg here")
+        return real(name, *a, **k)
+
+    monkeypatch.setattr(builtins, "__import__", no_winreg)
+    assert discover.steam_from_registry() == []
