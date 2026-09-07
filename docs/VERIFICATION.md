@@ -58,7 +58,9 @@ only at `mods/devbench/F4SE/Plugins/devbench.dll`, and F4SEVR loaded it from
 game ran *and* that MO2's virtualisation worked. One signal, two claims.
 
 The reverse direction holds too: devbench's `config.json` and `runtime.json` were written to
-`overwrite/F4SE/Plugins/devbench/`, and the game's real `Data/` is still vanilla.
+`overwrite/F4SE/Plugins/devbench/`, and the game's real `Data/` is still vanilla — of
+*mods*. The script extender's own `Data/Scripts/` is a separate matter and now genuinely
+installs; see the note in [`MO2_PORTABLE.md`](MO2_PORTABLE.md).
 
 ---
 
