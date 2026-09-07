@@ -1,0 +1,486 @@
+# Fallout 4 (flat) — minimal essential base
+#
+# Schema: ../../docs/MANIFEST_SCHEMA.md
+# Rationale, exclusions and disputes: ./README.md
+#
+# ⚠️ PINNED, BUILT AND INSTALLED 2026-09-07 — NOT LAUNCHED, NOT VERIFIED. Every fileId,
+#    filename, byte count and sha256 was resolved against the live Nexus API, and every
+#    installed archive was fetched twice by different routes and hashed to the same value.
+#    `build` generated C:\Modding\mo2_fo4 and `install` placed all seven mods plus the
+#    script extender, each hash-checked before it moved.
+#
+#    WHAT THAT STILL DOES NOT MEAN. The game has never been started through F4SE with this
+#    instance. "These plugins load together" is UNPROVEN, and so is every ordering decision
+#    in `order` below. The sibling recipe (../fo4vr) reached "loaded by the script extender
+#    in a running game" before it was trusted; this one has not, and cannot yet be verified
+#    the same way — devbench builds on a CommonLibF4 whose newest runtime constant is
+#    1.10.984, and F4SE's own 0.7.5 notes say the 1.11+ series needs a new address library
+#    and that plugins must be recompiled against it. See README.md "What is not established".
+#
+# The exclusion rule (docs/OPEN_QUESTIONS.md #4): a mod earns a place only if it fixes
+# something BROKEN or MISSING in vanilla Fallout 4. No visual overhauls, no rebalancing,
+# no new content. If `why` cannot be written without "nicer" or "I prefer", it is out.
+
+schema: 1
+
+game:
+  id: fo4
+  name: Fallout 4
+  mo2GameName: Fallout 4         # read out of MO2 2.5.2's own game_fallout4.dll
+  mo2ShortName: Fallout4         # corroborated by Documents\My Games\Fallout4 on disk
+  iniNames: [Fallout4.ini, Fallout4Custom.ini, Fallout4Prefs.ini]
+  nexusDomain: fallout4
+  steamAppId: 377160             # from steamapps/libraryfolders.vdf
+  runtime: "1.11.240"            # measured: Fallout4.exe FileVersion 1.11.240.0, 2026-08-19
+
+  # TRUE HERE, AND UNLIKE THE VR RECIPE. Fallout 4 "Anniversary Edition" is what runtime
+  # 1.11.x is called; UFO4P 2.2.2a states its requirement as "Fallout 4 patch 1.11.221 or
+  # greater" plus "ALL 15 Official DLCs", which is the six DLC .esm and the nine ccXXX
+  # .esl that AE ships. This machine has exactly those fifteen, so the requirement is
+  # satisfied — but a bare Fallout 4 install CANNOT run this recipe as written. That is a
+  # deliberate difference from ../fo4vr, whose base must install on a DLC-free game.
+  dlcRequired: true
+
+# ---------------------------------------------------------------------------
+# tools — infrastructure, not mods.
+#
+# NOTE A REAL DIVERGENCE FROM THE VR RECIPE: there, both tools came from GitHub and
+# silverlock, so the whole vertical slice could be proven before the Nexus download story
+# existed at all. Here the script extender is ON NEXUS — silverlock publishes 0.6.23 for
+# 1.10.163 as a direct .7z, but for 1.10.984 and 1.11.240 it links to Nexus mod 42147
+# instead. So a flat FO4 instance CANNOT be built without a Nexus API key. There is no
+# key-free bootstrap path for this game.
+# ---------------------------------------------------------------------------
+tools:
+  - id: mo2
+    name: Mod Organizer 2
+    why: The instance itself. Archive build, not the installer — no registry writes.
+    version: "2.5.2"
+    source:
+      type: github
+      repo: ModOrganizer2/modorganizer
+      tag: v2.5.2
+      asset: Mod.Organizer-2.5.2.7z
+    file:
+      # Same pin as ../fo4vr, and the same bytes — one MO2 build serves both games.
+      sha256: e6376efd87fd5ddd95aee959405e8f067afa526ea6c2c0c5aa03c5108bf4a815
+      size: 149660212
+    install: { root: instance }
+    notes: Requires Windows 10 1809+ / Windows 11 (Qt 6). Check before extracting.
+
+  - id: f4se
+    name: Fallout 4 Script Extender
+    why: >
+      Every plugin below is an F4SE plugin. Without it none of them load and the
+      instance is an elaborate way to run vanilla.
+    version: "0.7.9"
+    source:
+      # Nexus, not silverlock — see the block comment above. modId 42147 is the link
+      # f4se.silverlock.org itself points at for runtimes 1.10.984 and 1.11.240.
+      type: nexus
+      modId: 42147
+      fileId: 407709
+      version: "0.7.9"
+      page: https://f4se.silverlock.org/
+    file:
+      name: 'Fallout 4 Script Extender 42147 0.7.9 2026-08-18T14-42Z 2hTc9ppIs.7z'
+      sha256: 48677acc460d8dca0f2f6303b0ef7fe16bdb8a97bdc37c6ffb96ec604fec1a48
+      size: 921767
+    install:
+      root: game                 # loads before usvfs exists — must be a real file on disk
+      strip: 1                   # archive has a top-level f4se_0_07_09/ directory
+      # MEASURED from the archive, and DELIBERATELY TWO FILES, not three. F4SEVR ships
+      # f4sevr_steam_loader.dll; this archive has no flat equivalent, and
+      # f4se_whatsnew.txt says why: "f4se_steam_loader.dll no longer needed". The
+      # official readme's install step names only the DLL, the loader and Data.
+      files: [f4se_1_11_240.dll, f4se_loader.exe, Data/Scripts/]
+    notes: >
+      Runtime-locked, like every script extender: 0.7.9 is the build for 1.11.240, and
+      silverlock's own table maps 0.6.23 -> 1.10.163, 0.7.2 -> 1.10.984, 0.7.9 -> 1.11.240.
+      The lock is enforced in the loader, not merely documented: IdentifyEXE.cpp carries
+      `kCurVersion = 0x0001000B00F00000  // 1.11.240.0` and prints distinct errors for an
+      older exe ("out of date and incompatible") and a newer one. If `doctor` reports any
+      other runtime, this pin is wrong and nothing below will load.
+      DO NOT REPACK, PATCH OR RE-SIGN THESE BINARIES. Since 0.7.3 both are Authenticode
+      signed by Ian Patterson, and the loader verifies the DLL's certificate serial
+      against its own before injecting — so the loader and the DLL must come from this
+      same archive, and any step that rewrites the bytes turns a working install into
+      "dll untrusted". `install` copies them verbatim, which is what keeps this true.
+      This platform passes NO loader arguments; see platforms.FO4.extender_args.
+    uninstall: Delete f4se_1_11_240.dll, f4se_loader.exe and Data/Scripts from the game directory.
+
+# ---------------------------------------------------------------------------
+# mods
+# ---------------------------------------------------------------------------
+mods:
+
+  # --- foundation: nothing else works without these ------------------------
+  - id: address-library
+    name: Address Library for F4SE Plugins
+    why: >
+      Lets F4SE plugins resolve engine addresses by ID rather than hardcoded offsets,
+      so a plugin survives a game patch instead of crashing on load.
+    tier: foundation
+    required: true
+    enabled: true
+    source: { type: nexus, modId: 47327, fileId: 408269, version: "1.11.240" }
+    file:
+      name: 'Address Library 47327 1.11.240 2026-08-21T23-50Z eHN8M00Ax.zip'
+      sha256: b11f886322249f3f273327d08a0a7a260b3e6ea9b5f07d54bc79a426a9915970
+      size: 2492243
+    install: { root: data }
+    plugins: []
+    verify: [F4SE/Plugins/version-1-11-240-0.bin]
+    drift:
+      # NOT THE MAIN FILE, ON PURPOSE — the same trap MCM sprang on the VR recipe, in
+      # reverse. This mod's MAIN is "Address Library - All In One", 56 MB of every
+      # database from 1.10.130 to 1.11.240, whose own Nexus description reads "Download
+      # this if you have no idea what you're doing." The OPTIONAL file is the single
+      # database for one runtime: 2.4 MB, and the recipe is pinned to exactly one
+      # runtime. Both were downloaded and listed to confirm the OPTIONAL contains
+      # F4SE/Plugins/version-1-11-240-0.bin and nothing else.
+      trackCategory: OPTIONAL
+    notes: >
+      LOAD-BEARING, and the failure mode is nasty rather than loud. CommonLibF4 builds
+      the path itself — REL/IDDB.cpp: "Data/F4SE/Plugins/version-{version}.{csv if VR
+      else bin}" — so flat Fallout 4 wants **.bin** where FO4VR wants .csv, and the name
+      is the runtime with dashes. When the file is absent the library calls
+      report_and_fail, which on the VR side surfaced as a MODAL DIALOG and an apparent
+      hang: no crash, no error code, no log line. Check this file exists before blaming
+      anything else.
+
+  # --- fix: things vanilla gets wrong --------------------------------------
+  - id: ufo4p
+    name: Unofficial Fallout 4 Patch
+    why: >
+      Thousands of unfixed vanilla bugs — broken quests, bad navmesh, wrong records,
+      dialogue that never fires. The community bug-fix baseline other patches assume.
+    tier: fix
+    required: true
+    enabled: true
+    source: { type: nexus, modId: 4598, fileId: 407774, version: "2.2.2a" }
+    file:
+      name: 'Unofficial Fallout 4 Patch 4598 2.2.2a 2026-08-18T21-17Z seiQXqqfJ.7z'
+      sha256: a5f20932d46f9273b9321fc7088f9d9387f65b073d151093f901ea49721b2087
+      size: 41770758
+    install: { root: data }
+    # EXACT SPELLING FROM THE ARCHIVE, which is all lower case. The conventional
+    # rendering is "Unofficial Fallout 4 Patch.esp" and it is NOT what ships; NTFS hides
+    # the difference, a case-sensitive check would not.
+    plugins: ['unofficial fallout 4 patch.esp']
+    verify:
+      - 'unofficial fallout 4 patch.esp'
+      - 'unofficial fallout 4 patch - main.ba2'
+    notes: >
+      THE ENTRY THAT THE VR RECIPE CANNOT HAVE. There it is excluded because the base
+      must install on a DLC-free FO4VR; here `dlcRequired: true` is declared, this
+      machine has all fifteen, and the mod is available. Its stated requirement is
+      "Fallout 4 patch 1.11.221 or greater" — satisfied by 1.11.240, and worth noting
+      that it EXCLUDES the older 1.10.163 and 1.10.984 runtimes. Downgrading the game
+      would mean downgrading this pin too.
+
+  - id: addictol
+    name: Addictol
+    why: >
+      Fixes engine crashes and leaks vanilla never patched — bad form pointers in
+      unloaded cells, encounter zones resetting on foot, the interior navcut bug, the
+      quit-to-desktop freeze — and replaces the memory allocators that stall.
+    tier: fix
+    required: true
+    enabled: true
+    source: { type: nexus, modId: 84214, fileId: 404349, version: "1.5.2" }
+    file:
+      name: 'Addictol 1.5.2 84214 1.5.2 2026-07-24T17-00Z UkCFsg6BH.zip'
+      sha256: a46ce98766efe16cc15e212e9fa5428bc3405b0b651a8e9452ac399d6849fc16
+      # MEASURED from the downloaded bytes. The Nexus API reports 10396672 for this file,
+      # which is wrong by 321 bytes; the same is true of addictol-crash-logger. Where the
+      # API and the bytes disagree, the bytes win — they are what `install` hashes.
+      size: 10396993
+    install: { root: data }
+    plugins: []
+    verify:
+      - F4SE/Plugins/Addictol.dll
+      - F4SE/Plugins/Addictol.toml
+    notes: >
+      THIS IS NOT THE MOD THE VR RECIPE USES, and the substitution is forced rather than
+      preferred. ../fo4vr pins Buffout 4 NG and VR (mod 64880); that mod's own page says
+      it "supports 1.10.163/1.10.984/VR ... does not support Anniversary Edition. For an
+      alternative that supports the latest Fallout 4 version, use Addictol." Copying the
+      VR pin across would have installed a plugin that cannot load on this runtime.
+      The dedicated port, Buffout 4 AE / MiniBuff (mod 99911), is a dead end too: its
+      page opens "Buffout 4 AE is no longer in development. Future updates and fixes will
+      be in Addictol", and its last file predates the 1.11.240 update by six months.
+      Addictol declares "Fallout 4 (version OG, NG, AE)".
+      IT IS A BUNDLE, which cuts against this recipe's taste for one mod per problem: it
+      absorbs Buffout, X-Cell, Mentats, Baka MaxPapyrusOps, Escape Freeze, Interior
+      NavCut Fix, Long Save Bug Fix and Disk Cache Enabler. The upside is that eight
+      entries collapse into one and none of them can disagree about who patches what.
+      Everything is a toggle in Addictol.toml, all defaulting off unless the author
+      enabled it. NOT AUDITED — nobody here has read that file against the game.
+
+  - id: addictol-crash-logger
+    name: Addictol Crash Logger
+    why: >
+      Without it a crash is a closed window. Writes a stack with symbols to
+      Documents/My Games/Fallout4/F4SE, which is the difference between a diagnosis
+      and a guess.
+    tier: fix
+    required: false            # diagnosis, not function — the game runs without it
+    enabled: true
+    source: { type: nexus, modId: 84214, fileId: 404080, version: "1.5" }
+    file:
+      name: 'Addictol Crash Logger 84214 1.5 2026-07-22T01-27Z Jy54vilMM.zip'
+      sha256: c2ccb55232fb683e2e01e163b0b86211fd8e2ba70ded0cc28f22e8fcc705b514
+      size: 23098949           # measured; the API says 23098368. See addictol above.
+    install: { root: data }
+    plugins: []
+    verify:
+      - F4SE/Plugins/AddictolCrashLogger.dll
+      - F4SE/Plugins/AddictolCrashLogger.toml
+    drift:
+      # Upgrade detection CANNOT WORK for this entry, so it is switched off rather than
+      # left to cry wolf. `check` picks the newest MAIN file on the mod page and calls it
+      # an upgrade; mod 84214 publishes two different products as MAIN, so it reported
+      # "newer MAIN file available: 404349 v1.5.2" — which is Addictol itself, the entry
+      # directly above, not a newer crash logger. Following that advice would replace the
+      # logger with a second copy of the plugin it reports on.
+      # The pin is still checked for existence and for the mod being published; only the
+      # is-there-a-newer-one question is suppressed. A new crash logger release must
+      # therefore be noticed by a human. See OPEN_QUESTIONS.md #9.
+      ignoreNewer: >-
+        mod 84214 publishes Addictol and Addictol Crash Logger as two separate MAIN
+        files; "newest MAIN" names the wrong product
+    notes: >
+      A SECOND MAIN FILE ON THE SAME MOD PAGE, and not a variant of the first — mod 84214
+      publishes "Addictol" and "Addictol Crash Logger" as two separate F4SE plugins, at
+      different versions (1.5.2 and 1.5). Both are wanted; picking "the newest MAIN"
+      would have silently taken one and dropped the other.
+      KNOWN GAP: it ships Fallout4.pdb for 1.10.163, 1.10.984, 1.11.191 and 1.11.221 —
+      NOT for 1.11.240. Symbolication of this runtime is therefore incomplete until the
+      author adds it; the logger still runs and still writes stacks.
+      The archive also carries a fomod/ directory. It is not installed through the FOMOD
+      path because F4SE/ sits at the archive root and `detect_data_root` finds it there,
+      so `root: data` places it correctly and fomod/ and PDBs/ ride along unused.
+
+  - id: high-fps-physics-fix
+    name: High FPS Physics Fix
+    why: >
+      Vanilla ties physics, terminals, lockpicking, workshop mode and loading to the
+      frame rate, so anything above 60 fps corrupts them. Decouples the two.
+    tier: fix
+    required: false
+    enabled: true
+    source: { type: nexus, modId: 44798, fileId: 409873, version: "0.8.22" }
+    file:
+      name: 'High FPS Physics Fix 44798 0.8.22 2026-09-04T04-09Z ARl5VnqOB.zip'
+      sha256: 76122c08218fd393ed017ebffa4dc8a652d72b98adfd94742ca2cac20e84d270
+      size: 675149
+    install: { root: data }
+    plugins: []
+    verify:
+      - F4SE/Plugins/HighFPSPhysicsFix.dll
+      - F4SE/Plugins/HighFPSPhysicsFix.ini
+    notes: >
+      One of the few mods here that states its supported runtimes as an explicit range,
+      and 1.11.240 is the top of it: "1.10.130.0-1.10.163.0, 1.10.980.0-1.10.984.0,
+      1.11.159.0-1.11.240.0 and 1.2.72.0 (VR)". Updated 2026-09-04, three days before
+      this recipe was pinned.
+      HighFPSPhysicsFix.ini is TUNING, not a pin — frame-rate caps and loading-screen
+      behaviour belong to the adaptive half of the design and nothing here writes it yet.
+
+  # --- candidate: argued for, not adjudicated ------------------------------
+  # Candidates are NOT installed and NOT in order.install. They are recorded so the
+  # argument does not have to be had twice. PRP and MCM were both candidates when this
+  # file was first written and were admitted the same day; only hudframework remains.
+
+  # --- performance ---------------------------------------------------------
+  - id: prp
+    name: Previsibines Repair Pack
+    why: >
+      Vanilla and UFO4P both break precombines and previs in many cells, which is a
+      genuine engine-data defect: the game then draws everything, and frame rate in
+      Boston collapses. Rebuilds them.
+    tier: performance
+    required: false
+    enabled: true
+    source: { type: nexus, modId: 46403, fileId: 410469, version: "81.9" }
+    file:
+      name: 'Previsibines Repair Pack - Full (1.11.240) 46403 81.9 2026-09-07T18-14Z XMYH04Ocu.7z'
+      sha256: a7c48fcef7c072f5aeb7003362e15496a5224b5c525437b42fa721caf1fc6f9a
+      size: 2258633963
+    install: { root: data }
+    # EXACT SPELLING FROM THE ARCHIVE, which is lower case like UFO4P's. ppf.esm is a
+    # MASTER and must load before prp.esp; both must load after the unofficial patch,
+    # whose records PRP's previs is built against.
+    plugins: [ppf.esm, prp.esp]
+    verify:
+      - ppf.esm
+      - prp.esp
+      - 'prp - main.ba2'
+      - 'prp - geometry.csg'    # the previs geometry itself; the point of the mod
+    notes: >
+      ADMITTED 2026-09-07 after being pinned as a candidate the same day. The argument
+      against was never that it does not work — it is that **2.26 GB** is thirty times
+      the rest of this recipe combined, and that it touches worldspace cells, so it is
+      the one entry with broad incompatibility with other mods; an entire patch
+      compendium exists for it. That cost is accepted deliberately rather than
+      overlooked.
+      Its requirements independently confirm this recipe's runtime choice: "Fallout 4
+      Anniversary Edition ... AE (Current) - Supported as of 81 or newer", and NG via
+      Steam downgrade is marked "No longer supported, update to AE if still on it".
+      It also requires the latest UFO4P, which is the pin above — so these two entries
+      are coupled, and moving the UFO4P pin without checking PRP is a way to break both.
+      It ships a .cdx and a .csg beside the plugins, which are previs/geometry data
+      rather than archives; `install: root: data` places them Data-relative like the rest.
+
+  - id: mcm
+    name: Mod Configuration Menu
+    why: >
+      Gives F4SE mods a settings UI in-game instead of hand-edited ini files.
+    tier: fix
+    required: false
+    enabled: true
+    source: { type: nexus, modId: 21497, fileId: 409624, version: "1.11.240" }
+    file:
+      name: 'Mod Configuration Menu 1.11.240 21497 1.11.240 2026-09-01T20-02Z OtKdIlice.zip'
+      sha256: 8089524f07ae4d470c6ffe01168fab1f72b3cfeea44bf749421fefd02ed9717a
+      size: 361589
+    install: { root: data }   # archive nests under Data/; detect_data_root descends into it
+    plugins: []               # F4SE plugin + Interface + Papyrus, no esp
+    verify:
+      - F4SE/Plugins/mcm.dll
+      - Interface/MCM.swf
+      - Scripts/MCM.pex
+    notes: >
+      ADMITTED 2026-09-07, with the caveat intact: **nothing else in this list has an MCM
+      page**, so today it is a framework waiting for a dependent rather than a dependency.
+      It is in because it becomes mandatory the moment anything configurable is added, and
+      because Addictol's own settings live in a TOML nobody has audited — a settings UI is
+      the cheapest way to make that state visible.
+      Note the mirror image of the VR recipe's trap: there, mod 21497's MAIN is the flat
+      build and the VR build ships as OPTIONAL, so ../fo4vr carries
+      `drift.trackCategory: OPTIONAL`. Here the MAIN is the correct file and no override
+      is needed — the same mod page, the opposite rule.
+
+  - id: no-readonly-plugins-txt
+    name: No Read-only Plugins Txt Overwrite
+    why: >
+      On Anniversary Edition the engine deletes and rewrites Plugins.txt on its own,
+      ignoring the read-only flag that pinned a load order on every earlier runtime.
+    tier: candidate
+    required: false
+    enabled: false
+    source: { type: nexus, modId: 100503, fileId: 408017, version: "2.1" }
+    file:
+      name: 'No Read-only Plugins Txt Overwrite - F4SE 100503 2.1 2026-08-20T09-38Z xiVvchhtL.zip'
+      sha256: null
+      size: 200704
+    install: { root: data }
+    plugins: []
+    notes: >
+      A CANDIDATE THAT IS REALLY A TEST TO RUN, and it aims at this recipe's own premise.
+      Everything here assumes the generated `profiles/Default/plugins.txt` IS the load
+      order. The mod author states that is no longer safe on AE: "The built-in load order
+      manager of the Anniversary Edition of Fallout 4 (v1.11.137 and higher) automatically
+      removes the existing and creates a new Plugins.txt with the resolved mod list
+      regardless whether Plugins.txt was manually set to Read-only. On the OG (pre
+      Next-Gen) and NG (Next-Gen) versions, setting Plugins.txt to Read-only prevented
+      this from happening." It then describes its audience as "advanced users who manage
+      their Plugins.txt manually", which is exactly what this project does.
+      NOT INSTALLED, because the exclusion rule wants evidence of a defect rather than a
+      plausible story, and there is none yet: MO2 does not set the file read-only anyway,
+      and nothing here has observed our declared order being rewritten. THE MEASUREMENT
+      THAT DECIDES IT: record plugins.txt before a run, launch, exit, diff. If the engine
+      has reordered or dropped entries, this stops being a candidate immediately — and
+      `order.plugins` stops being documentation-only.
+
+  - id: hudframework
+    name: HUDFramework
+    why: >
+      Lets mods add widgets to the HUD without each one replacing the same HUD file
+      and fighting every other mod that tried.
+    tier: candidate
+    required: false
+    enabled: false
+    source: { type: nexus, modId: 20309, fileId: 93183, version: "1.0f" }
+    file:
+      name: 'HUDFramework 1.0f-20309-1-0f.zip'
+      sha256: null
+      size: 287655
+    install: { root: data }
+    plugins: []
+    notes: >
+      Same argument as mcm — a framework with nothing in this list depending on it. Also
+      the OLDEST pin in the recipe by years: v1.0f, and its file predates the next-gen
+      update entirely, so unlike every other entry here nothing about it has been
+      republished for 1.11.240. Whether it still works on AE is UNKNOWN and would have
+      to be measured before it stops being a candidate.
+
+# ---------------------------------------------------------------------------
+# EXCLUDED — recorded so the same research is not done twice. Full reasoning in README.md.
+#
+#   xSE PluginPreloader F4 (33946) — in the VR recipe, deliberately NOT here. The author's
+#     own page: "You don't need this unless a mod specifically says you require this ...
+#     you only need this if you are using PrivateProfileRedirector F4 or Buffout 4", and
+#     "Starting with Fallout 4 NG update, F4SE plugins can opt in to use the preload
+#     method built in the new F4SE releases". Nothing above asks for it. Excluding it also
+#     removes a second `root: game` mutation of the user's install.
+#   Buffout 4 NG and VR (64880) — does not support AE; see addictol.
+#   Buffout 4 AE / MiniBuff (99911) — discontinued by its author; see addictol.
+#   Buffout 4 (47359) — the original, last updated 2023, pre-next-gen.
+#   Baka ScrapHeap, Baka MaxPapyrusOps, Escape Freeze, Mentats, X-Cell, Long Save Bug Fix,
+#     Interior NavCut Fix — all absorbed by Addictol, and the author says not to run them
+#     alongside it.
+# ---------------------------------------------------------------------------
+
+order:
+  # MO2 modlist.txt, WINNER FIRST — emitted VERBATIM, no reversal. See MO2_PORTABLE.md §4.
+  # Only VIRTUALISED, non-candidate mods appear. f4se is `root: game` and lives outside
+  # usvfs; hudframework is the one remaining candidate and is not installed.
+  #
+  # NO TWO OF THESE ARE KNOWN TO CONFLICT AT THE FILE LEVEL — they claim disjoint paths,
+  # so the order is reasoned rather than observed, exactly as in ../fo4vr. Two positions
+  # are load-bearing anyway:
+  #   * the crash logger sits above Addictol, since both ship debug-symbol tooling;
+  #   * PRP sits ABOVE UFO4P. They are the only pair here that genuinely overlap in
+  #     intent: PRP rebuilds previsibines for cells the unofficial patch also edits, and
+  #     its previs is built AGAINST that patch, so where the two ever claim the same file
+  #     PRP is the one that must win. Reasoned, NOT measured — neither has been observed
+  #     losing to the other, and this is the first entry in either recipe where the
+  #     ordering machinery could actually matter.
+  install:
+    - mcm                      # UI framework; owns Interface files nothing else claims
+    - high-fps-physics-fix     # narrowest scope, and the only one that owns its own ini
+    - addictol-crash-logger    # must win over anything that would replace its symbols
+    - addictol
+    - prp                      # ABOVE ufo4p on purpose — see the note above
+    - ufo4p                    # the big record patch
+    - address-library          # pure data, claimed by nobody else
+
+  # plugins.txt / loadorder.txt — LOAD ORDER, which is the OPPOSITE convention to
+  # `order.install` above. There, first wins a file conflict. Here, a LATER plugin wins a
+  # record conflict. PRP is the pair that makes the difference real: it is first in
+  # order.install because its loose files must win, and it must load LAST because its
+  # previs is built against the unofficial patch.
+  #
+  # This list is read as a SORT KEY over the plugins installed mods contribute, not as the
+  # literal file contents. Until 2026-09-07 it was read as nothing at all, and plugins.txt
+  # was derived from order.install — which emitted prp.esp BEFORE the patch it must beat.
+  #
+  # The DLC are listed for the record and are deliberately NOT in base_plugins. MEASURED
+  # 2026-09-07: the Plugins.txt the game itself wrote at %LOCALAPPDATA%\Fallout4 contains
+  # its two header lines and NOTHING ELSE, while all six DLC and nine ccXXX .esl were
+  # loaded — the engine takes them from DLCList.txt and UserDownloadedContent.txt beside
+  # it. The order below is the order UserDownloadedContent.txt lists them in, which is the
+  # engine's own, not the alphabetical order they are usually written in.
+  plugins:
+    - Fallout4.esm
+    - DLCRobot.esm             # implicit — engine-loaded, never in plugins.txt
+    - DLCworkshop01.esm        # implicit
+    - DLCCoast.esm             # implicit
+    - DLCworkshop02.esm        # implicit
+    - DLCworkshop03.esm        # implicit
+    - DLCNukaWorld.esm         # implicit
+    - 'unofficial fallout 4 patch.esp'
+    - ppf.esm                  # PRP's master, after the patch it is built against
+    - prp.esp
