@@ -152,7 +152,7 @@ def cmd_check(args) -> int:
 
     m = mf.load(args.manifest, strict=False)
     problems = mf.validate(m)
-    dead = warn = 0
+    dead = warn = unreachable = 0
 
     print("-- manifest --")
     for p in problems:
@@ -163,8 +163,10 @@ def cmd_check(args) -> int:
 
     print("\n-- off-site sources --")
     for f in ck.check_offsite(m):
-        print(f"{OK if f.level == 'ok' else BAD} {f.entry_id}: {f.message}")
+        tag = {"ok": OK, "dead": BAD, "unreachable": WARN}[f.level]
+        print(f"{tag} {f.entry_id}: {f.message}")
         dead += f.level == "dead"
+        unreachable += f.level == "unreachable"
 
     if not args.no_nexus:
         print("\n-- nexus pins --")
@@ -179,11 +181,17 @@ def cmd_check(args) -> int:
         except nexus.NexusError as e:
             print(f"{WARN} skipped: {e}")
 
-    print(f"\n{dead} dead, {warn} newer-available")
+    print(f"\n{dead} dead, {unreachable} unreachable, {warn} newer-available")
     if warn and args.strict:
         # Opt-in: a newer file is news, not breakage. Only fail on it when asked.
         return 1
-    return 1 if dead else 0
+    if dead:
+        return 1
+    # 2 is INCONCLUSIVE, the same meaning it carries in `verify`: no answer, cause
+    # unknown. A host that did not respond has told us nothing about the pin, and
+    # calling that a dead link is the confidently-wrong failure this project keeps
+    # legislating against. See check._head for the run that forced the distinction.
+    return 2 if unreachable else 0
 
 
 def cmd_install(args) -> int:
