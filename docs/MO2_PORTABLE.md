@@ -306,6 +306,17 @@ and launching the game through it. See [`VERIFICATION.md`](VERIFICATION.md) for 
       `...\Fallout 4 VR\Data\F4SE\Plugins\devbench.dll`. Writes went the other way: the
       plugin's `config.json` and `runtime.json` landed in `overwrite/F4SE/Plugins/devbench/`.
       **The game's real `Data/` is still byte-for-byte vanilla.**
+
+      > **Narrowed 2026-09-07.** That claim is about MODS, and it still holds: nothing
+      > virtualised leaks into the game directory. It was never a claim about the script
+      > extender, which is `root: game` by necessity. Both recipes have always declared
+      > `Data/Scripts/` in the extender's `install.files`, and it silently installed
+      > nothing until `wants_file` was fixed — the separator bug in that commit. So on the
+      > next `mla install`, FO4VR's `Data/Scripts/` gains F4SEVR's ~30 `.pex` files. That
+      > is the declared and intended behaviour, F4SE's own readme says to copy `Data`, and
+      > the entry's `uninstall` note already names it. But `Data/` is no longer *empty of
+      > everything*, and a reader comparing this sentence against a disk deserves to know
+      > which half moved.
 - [ ] FOMOD archives whose root is *not* Data-relative — still open; none of the mods
       installed so far needed it.
 - [ ] Whether MO2 can install from an archive without the GUI (we placed directories

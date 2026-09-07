@@ -29,8 +29,22 @@ jobs:
         run: python -m pytest core/tests/test_generation.py -q
 
       - name: manifest consistency
+        # EVERY recipe, discovered rather than listed. This step named recipes/fo4vr
+        # explicitly until 2026-09-07, so recipes/fo4 arrived with zero CI coverage and
+        # nothing said so — the same "only ever fitted to one game" shape the core itself
+        # had. A new recipe directory is now covered the moment it exists.
         # --no-nexus so this half runs on forks and PRs with no secret available.
-        run: python core/mla.py check recipes/fo4vr/manifest.yaml --no-nexus
+        run: |
+          $failed = @()
+          foreach ($r in Get-ChildItem recipes -Directory | Sort-Object Name) {
+            $m = "recipes/$($r.Name)/manifest.yaml"
+            if (-not (Test-Path $m)) { continue }
+            Write-Host "== $m"
+            python core/mla.py check $m --no-nexus
+            if ($LASTEXITCODE -ne 0) { $failed += $m }
+          }
+          if ($failed) { Write-Host "FAILED: $($failed -join ', ')"; exit 1 }
+        shell: pwsh
 
   # ---------------------------------------------------------------------------
   # Tier 1b — hosted, needs the API key. Metadata only: asks whether each pinned
@@ -50,12 +64,19 @@ jobs:
         env:
           NEXUS_API_KEY: ${{ secrets.NEXUS_API_KEY }}
         run: |
-          if ("$env:NEXUS_API_KEY" -eq "") {
-            Write-Host "no NEXUS_API_KEY secret; running off-site checks only"
-            python core/mla.py check recipes/fo4vr/manifest.yaml --no-nexus
-          } else {
-            python core/mla.py check recipes/fo4vr/manifest.yaml
+          # NB: not $args — that is an automatic PowerShell variable.
+          $noNexus = "$env:NEXUS_API_KEY" -eq ""
+          if ($noNexus) { Write-Host "no NEXUS_API_KEY secret; running off-site checks only" }
+          $failed = @()
+          foreach ($r in Get-ChildItem recipes -Directory | Sort-Object Name) {
+            $m = "recipes/$($r.Name)/manifest.yaml"
+            if (-not (Test-Path $m)) { continue }
+            Write-Host "== $m"
+            if ($noNexus) { python core/mla.py check $m --no-nexus }
+            else          { python core/mla.py check $m }
+            if ($LASTEXITCODE -ne 0) { $failed += $m }
           }
+          if ($failed) { Write-Host "FAILED: $($failed -join ', ')"; exit 1 }
         shell: pwsh
 
   # ---------------------------------------------------------------------------
