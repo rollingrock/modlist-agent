@@ -189,14 +189,35 @@ mods:
     tier: fix
     required: true
     enabled: true
-    source: { type: nexus, modId: 84214, fileId: 404349, version: "1.5.2" }
+    # MOVED OFF NEXUS 2026-09-07, because the Nexus build CRASHES THIS RUNTIME. Measured,
+    # not suspected: five launches with Addictol 1.5.2 loaded died at 3.5-5.7s with the
+    # same EXCEPTION_ACCESS_VIOLATION at Fallout4.exe+099A595 every time; removing it ran
+    # 81s and was still responding, and a no-plugin baseline also survived. The live
+    # process's module list was checked each run rather than trusting modlist.txt.
+    #
+    # The version explains it. Nexus's newest Addictol is 1.5.2, dated 2026-07-24 — FOUR
+    # WEEKS BEFORE runtime 1.11.240 shipped on 2026-08-19. The address-library series ran
+    # 1.11.191 -> 1.11.221 -> 1.11.240, so 1.5.2 was built against 1.11.221 at the latest.
+    # Addictol patches the engine directly (thread priorities, allocators, load screens),
+    # which is exactly the version-sensitive work an address library cannot insulate. The
+    # mod page's "OG, NG, AE" was true when written and went stale silently.
+    #
+    # So the pin follows upstream's own newer build instead. IT IS A PRE-RELEASE, which is
+    # a deliberate and uncomfortable choice: upstream has published no stable release since
+    # the runtime moved, and the stable one does not run. Pinned by tag + sha256 like any
+    # other source, so it is exactly as reproducible; "pre-release" is a statement about
+    # upstream's confidence, not about this pin's determinism.
+    source:
+      type: github
+      repo: Dear-Modding-FO4/Addictol
+      tag: v1.6.608.0
+      asset: Addictol-1.6.608.0.zip
+      version: "1.6.608.0"
+      page: https://www.nexusmods.com/fallout4/mods/84214
     file:
-      name: 'Addictol 1.5.2 84214 1.5.2 2026-07-24T17-00Z UkCFsg6BH.zip'
-      sha256: a46ce98766efe16cc15e212e9fa5428bc3405b0b651a8e9452ac399d6849fc16
-      # MEASURED from the downloaded bytes. The Nexus API reports 10396672 for this file,
-      # which is wrong by 321 bytes; the same is true of addictol-crash-logger. Where the
-      # API and the bytes disagree, the bytes win — they are what `install` hashes.
-      size: 10396993
+      name: 'Addictol-1.6.608.0.zip'
+      sha256: e0c757e94352f2376e4707de59435b2a99e9b7dedd8aaa1f01e0d3e924117237
+      size: 11997587
     install: { root: data }
     plugins: []
     verify:
