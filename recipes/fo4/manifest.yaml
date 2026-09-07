@@ -3,20 +3,30 @@
 # Schema: ../../docs/MANIFEST_SCHEMA.md
 # Rationale, exclusions and disputes: ./README.md
 #
-# ⚠️ PINNED, BUILT AND INSTALLED 2026-09-07 — NOT LAUNCHED, NOT VERIFIED. Every fileId,
-#    filename, byte count and sha256 was resolved against the live Nexus API, and every
-#    installed archive was fetched twice by different routes and hashed to the same value.
-#    `build` generated C:\Modding\mo2_fo4 and `install` placed all seven mods plus the
-#    script extender, each hash-checked before it moved.
+# ✅ LAUNCHED AND VERIFIED 2026-09-07. Every fileId, filename, byte count and sha256 was
+#    resolved against the live Nexus API (the Addictol entry against its GitHub release),
+#    `build` generated C:\Modding\mo2_fo4, `install` placed all seven mods plus the script
+#    extender each hash-checked, and the game was then LAUNCHED through F4SE twice.
 #
-#    WHAT THAT STILL DOES NOT MEAN. The game has never been started through F4SE with this
-#    instance. "These plugins load together" is UNPROVEN, and so is every ordering decision
-#    in `order` below. The sibling recipe (../fo4vr) reached "loaded by the script extender
-#    in a running game" before it was trusted; this one has not. Verification is now
-#    POSSIBLE but unproven: devbench had never loaded on flat Fallout 4 because it exported
-#    only the pre-0.7.0 `F4SEPlugin_Query` handshake, which F4SE 0.7.9 does not call; it
-#    now declares `F4SEPlugin_Version` too, so it should load on :8930. No flat endpoint
-#    has answered yet. See README.md "What is not established".
+#    WHAT THE LAUNCHES PROVED. Two clean runs (86 s and 65 s), each responding at the main
+#    menu until closed, no crash log, Steam alive throughout. `f4se.log` reached
+#    `init complete` with all four F4SE-plugin DLLs `loaded correctly`: Addictol
+#    (01062600 = 1.6.608.0), AddictolCrashLogger, HighFPSPhysicsFix and F4MCM. No
+#    Warnings.txt was written, so the ESM/ESP masters (unofficial fallout 4 patch.esp,
+#    ppf.esm, prp.esp) resolved — the game was not sitting on a missing-content dialog.
+#    `profiles/Default/plugins.txt` was byte-identical before and after each run and in the
+#    declared order, so on this machine the AE engine did not rewrite the load order.
+#    Evidence: ../../docs/evidence/fo4-flat-launch-2026-09-07.json.
+#
+#    WHAT IS STILL NOT PROVEN. Nobody has PLAYED it — the longest run is 86 s at the main
+#    menu; a loaded save/new-game world was not reached (no save exists, and flat FO4 has
+#    no headless launch path like the VR recipe's null driver). Idempotency over a
+#    half-set-up machine (OPEN_QUESTIONS #7) is still untested. devbench is dropped, so
+#    verification here is log-based; see README.md "What is not established".
+#
+#    WHY THE OLD PIN CRASHED. The earlier Addictol 1.5.2 (built pre-1.11.240) died at
+#    Fallout4.exe+099A595 within ~5 s, every launch; the GitHub 1.6.608.0 pin below fixes
+#    it. See the addictol entry's own note.
 #
 # The exclusion rule (docs/OPEN_QUESTIONS.md #4): a mod earns a place only if it fixes
 # something BROKEN or MISSING in vanilla Fallout 4. No visual overhauls, no rebalancing,

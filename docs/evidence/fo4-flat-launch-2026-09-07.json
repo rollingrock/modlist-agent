@@ -1,0 +1,32 @@
+{
+  "what": "First verified launch of the flat Fallout 4 (Anniversary, 1.11.240) recipe. Game started through F4SE 0.7.9 from the portable MO2 instance and ran stably at the main menu with every recipe plugin loaded. devbench is dropped from this recipe, so this is log-based verification (the section 4b acceptance check), not an HTTP endpoint answer.",
+  "when": "2026-09-07",
+  "machine": "C:\\Modding\\mo2_fo4 -> C:\\Program Files (x86)\\Steam\\steamapps\\common\\Fallout 4 (1.11.240.0)",
+  "runs": [
+    { "which": "run 1", "uptime_seconds_when_closed": 86, "responding": true, "new_crash_log": false, "steam_alive_after": true },
+    { "which": "run 2", "uptime_seconds_when_closed": 65, "responding": true, "new_crash_log": false, "steam_alive_after": true, "warnings_txt_written": false }
+  ],
+  "f4se_log_tail": [
+    "plugin Addictol.dll (00000001 Addictol 01062600) loaded correctly (handle 1)",
+    "plugin AddictolCrashLogger.dll (00000001 AddictolCrashLogger 01050000) loaded correctly (handle 2)",
+    "plugin HighFPSPhysicsFix.dll (00000001 HighFPSPhysicsFix 00080160) loaded correctly (handle 3)",
+    "plugin mcm.dll (00000001 F4MCM 0000000B) loaded correctly (handle 4)",
+    "init complete"
+  ],
+  "f4se_plugins_loaded": ["Addictol 1.6.608.0", "AddictolCrashLogger 1.5", "HighFPSPhysicsFix 0.8.22", "F4MCM (mcm) 1.11.240"],
+  "plugins_txt_profile": ["unofficial fallout 4 patch.esp", "ppf.esm", "prp.esp"],
+  "plugins_txt_stable_across_run": true,
+  "warnings_txt_written": false,
+  "what_this_rules_out": {
+    "addictol_1_5_2_load_screen_crash": "gone — the GitHub 1.6.608.0 pin replaced the Nexus 1.5.2 that crashed at Fallout4.exe+099A595",
+    "missing_masters": "no Warnings.txt, so UFO4P / ppf.esm / prp.esp resolved",
+    "ae_rewrites_plugins_txt": "not observed — profile plugins.txt byte-identical before/after each run, in declared order",
+    "steam_instability": "earlier 'silent exits' were Steam being offline (LogonFailure No Connection); with Steam logged on, runs are clean"
+  },
+  "not_proven": [
+    "a loaded save / new-game world (longest run is 86 s at the main menu; no save exists and flat FO4 has no headless launch path)",
+    "idempotency over a half-set-up machine (OPEN_QUESTIONS #7)"
+  ],
+  "how_launched": "Win32_Process.Create (WMI) so the game is parented to WmiPrvSE.exe, not the agent's process tree — see C:\\Modding\\mo2_fo4\\launch-detached.ps1",
+  "plugin": "none (log-based; devbench dropped from this recipe)"
+}

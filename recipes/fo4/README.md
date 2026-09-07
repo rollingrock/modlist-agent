@@ -139,43 +139,49 @@ Two entries are recorded as **candidates** — pinned and argued, not installed:
   here, `order.plugins` is advisory and something has to change. The measurement is cheap:
   record the file, launch, exit, diff.
 
-## What is not established
+## What launching proved, 2026-09-07
 
-Stated plainly, because a working `install` invites more confidence than it has earned:
+The recipe was launched through F4SE twice and ran clean each time — evidence in
+[`../../docs/evidence/fo4-flat-launch-2026-09-07.json`](../../docs/evidence/fo4-flat-launch-2026-09-07.json):
 
-- **Nothing has been launched.** The instance is generated and the mods are installed and
-  hash-verified. The game has never been started through F4SE with this instance, so
-  "these plugins load together" is *unproven*.
-- **There is now an instrument, and it has never answered.** `../fo4vr` is verified by
-  `devbench` answering on a local port; flat FO4 gets port **8930** from the same DLL.
+- **It launches and stays up.** Two runs of 86 s and 65 s, responding at the main menu
+  until closed, **no crash log**, Steam alive throughout. `f4se.log` reached
+  `init complete` with all four F4SE-plugin DLLs `loaded correctly`: Addictol
+  (`01062600` = 1.6.608.0), AddictolCrashLogger, HighFPSPhysicsFix and F4MCM.
+- **The masters loaded.** No `Warnings.txt` was written, so `unofficial fallout 4
+  patch.esp`, `ppf.esm` and `prp.esp` resolved — the game was not parked on a
+  missing-content dialog. This is the first time either recipe's `order.plugins` (PRP
+  after the patch it is built against) has actually run rather than been reasoned.
+- **AE did not rewrite the load order.** `profiles/Default/plugins.txt` was byte-identical
+  before and after each run and in the declared order — so on this machine the
+  "No Read-only Plugins Txt Overwrite" candidate is answering a problem that did not occur.
+  One data point, not a proof for every AE machine, but it is now data rather than a story.
+- **The old crash is understood and fixed.** Addictol 1.5.2 (built pre-1.11.240) died at
+  `Fallout4.exe+099A595` within ~5 s every launch; the GitHub 1.6.608.0 pin fixes it. The
+  earlier "silent exits" traced to Steam being *offline* (`LogonFailure No Connection`),
+  not to a fatal problem — the machine has 10-day uptime with no bugcheck.
 
-  > **Corrected 2026-09-07.** This section previously blamed the Address Library, saying
-  > a pre-1.11 plugin "is documented as needing a rebuild" and that flat FO4 therefore had
-  > no instrument at all. That was the wrong culprit. devbench never loaded on flat for a
-  > much simpler reason: it exported only `F4SEPlugin_Query`, the handshake F4SE 0.7.0
-  > replaced with a declarative `F4SEPlugin_Version` record — and 0.7.9 does not call
-  > `Query` at all, the string is not in `f4se_1_11_240.dll`. The plugin was rejected
-  > before a line of its code ran: `plugin devbench.dll (00000000 00000000) no version
-  > data 0 (handle 0)`. It now exports both handshakes, so it **should** load.
+## What is still not established
 
-  What is still open is narrower, and it is a *layout* question rather than a loading one:
-  that build's CommonLibF4 models Next-Gen struct layouts and 1.11.240 has not been
-  validated against them. Address-library-resolved calls are correct by construction;
-  **direct field reads are where a wrong answer would come from** — which matters, because
-  a wrong answer from the instrument is worse than no instrument. Until a flat endpoint
-  has actually answered, `f4se.log` remains the honest evidence.
-- **No two of these mods are known to conflict at the file level**, so `order.install` is
-  reasoned rather than observed — the same caveat the VR recipe carries. One pair now
-  genuinely overlaps in intent, though: PRP rebuilds previsibines for cells UFO4P also
-  edits, and PRP's previs is built *against* that patch, so PRP is placed above it. That
-  is the first ordering decision in either recipe where the machinery could actually
-  matter, and it is still reasoning rather than a measurement.
-- **Whether the engine respects the generated `plugins.txt` at all** on AE — see the
-  second candidate above. If it rewrites it, `order.plugins` is advisory.
+Stated plainly, because two clean main-menu runs invite more confidence than they earn:
+
+- **Nobody has played it.** The longest run is 86 s at the main menu. A loaded save or a
+  new-game world was not reached — no save exists, and flat FO4 has no headless launch
+  path like the VR recipe's SteamVR null driver, so reaching a loaded world would need a
+  human at the keyboard.
+- **Verification here is log-based, not an instrument.** `../fo4vr` is verified by
+  `devbench` answering on a local port; devbench is **dropped** from this recipe (it could
+  not express Anniversary addresses on the current CommonLibF4 lineage), so the acceptance
+  check is `f4se.log` + no crash log + a responding process + Steam still alive. That is
+  weaker than an HTTP answer from inside the world, and it is the honest ceiling until
+  either devbench moves to a lineage that supports AE or a save is loaded by hand.
+- **`order.install` file-conflict priority is still reasoned, not observed.** No two mods
+  are known to fight at the file level; the PRP-above-UFO4P decision loaded fine but was
+  not stress-tested by an actual conflict.
 - **Addictol's TOML has not been audited**, so which of its eight absorbed fixes are
-  actually on is unknown.
+  actually on is unknown (it is a bundle; the launch shows it loads, not what it does).
 - **Idempotency** — [`../../docs/OPEN_QUESTIONS.md`](../../docs/OPEN_QUESTIONS.md) #7 —
-  remains untested here as everywhere.
+  remains untested here as everywhere: every run has started from a freshly built profile.
 
 ## Sources
 
