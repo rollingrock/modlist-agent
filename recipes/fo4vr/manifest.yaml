@@ -324,13 +324,18 @@ mods:
     tier: fix
     required: true
     enabled: true                # no staging — see notes
-    source: { type: nexus, modId: 53464, fileId: 393288, version: "0.77.12" }
+    source: { type: nexus, modId: 53464, fileId: 407606, version: "0.78.2" }
     file:
-      name: 'FRIK 77.12-53464-v0-77-12-1776119663.7z'
-      sha256: 2e974e0afdfd04f18bcf62b52977ec37b6e9e6bef7b3c082da137c627480c970
-      size: 11199147
+      # BUMPED 2026-09-07, 77.12 -> 78.2, after the drift check on the flat-fallout4
+      # branch reported the newer MAIN. Hash computed from the downloaded bytes, which
+      # match the API's size exactly. The archive is still Data-relative and still ships
+      # F4SE/Plugins/FRIK.dll + FRIK.esp + Materials/Meshes/Scripts, so nothing else in
+      # this entry moves — checked by listing it rather than assumed from the version.
+      name: 'FRIK 78.2 53464 v0.78.2 2026-08-17T16-42Z 86DAb33jN.7z'
+      sha256: 8e8d8bcf00ddf181ddd5580e2c216d536664fb47ee3fd0251893347cdc8ad78f
+      size: 11888593
     install: { root: data }
-    plugins: [FRIK.esp]   # verified on disk 2026-08-16
+    plugins: [FRIK.esp]   # re-checked in the 78.2 archive 2026-09-07
     upstream: C:\repos\Fallout-4-VR-Body
     notes: >
       AUTHORED BY THIS PROJECT'S DEVELOPER. Not an outside dependency — source is next

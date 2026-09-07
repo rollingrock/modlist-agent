@@ -12,10 +12,11 @@
 #    WHAT THAT STILL DOES NOT MEAN. The game has never been started through F4SE with this
 #    instance. "These plugins load together" is UNPROVEN, and so is every ordering decision
 #    in `order` below. The sibling recipe (../fo4vr) reached "loaded by the script extender
-#    in a running game" before it was trusted; this one has not, and cannot yet be verified
-#    the same way — devbench builds on a CommonLibF4 whose newest runtime constant is
-#    1.10.984, and F4SE's own 0.7.5 notes say the 1.11+ series needs a new address library
-#    and that plugins must be recompiled against it. See README.md "What is not established".
+#    in a running game" before it was trusted; this one has not. Verification is now
+#    POSSIBLE but unproven: devbench had never loaded on flat Fallout 4 because it exported
+#    only the pre-0.7.0 `F4SEPlugin_Query` handshake, which F4SE 0.7.9 does not call; it
+#    now declares `F4SEPlugin_Version` too, so it should load on :8930. No flat endpoint
+#    has answered yet. See README.md "What is not established".
 #
 # The exclusion rule (docs/OPEN_QUESTIONS.md #4): a mod earns a place only if it fixes
 # something BROKEN or MISSING in vanilla Fallout 4. No visual overhauls, no rebalancing,
