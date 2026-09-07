@@ -92,9 +92,17 @@ def targets(manifest):
 
 
 def links_for(manifest, entries) -> list[tuple[str, str]]:
+    """Nexus file pages for the free 'click Mod Manager Download' path.
+
+    NEXUS-ONLY, and that filter is load-bearing now that `targets()` also returns
+    github/http entries: those have no Nexus file page and are fetched directly, and a
+    bare `e.source["modId"]` on one would KeyError the whole --print-links run. The click
+    path is a Nexus concept; there is nothing to click for a github release or an http
+    mirror.
+    """
     domain = manifest.game["nexusDomain"]
     return [(e.id, Client.file_page(domain, e.source["modId"], e.source["fileId"]))
-            for e in entries]
+            for e in entries if e.source.get("type") == "nexus"]
 
 
 def _fetch_offsite(e, dest_dir: pathlib.Path) -> Fetched:

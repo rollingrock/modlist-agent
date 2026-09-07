@@ -254,16 +254,27 @@ def cmd_download(args) -> int:
 
     m = mf.load(args.manifest, strict=False)
     plat = platforms.get(m.game["id"])
-    dest = pathlib.Path(args.instance) / "downloads" if args.instance else pathlib.Path(args.dest)
     entries = dl.targets(m)
 
     if args.print_links:
         # The free path. We print; the human clicks. We never click for them.
+        # Needs no destination — it downloads nothing.
         print("Click 'Mod Manager Download' on each page. Each click hands an nxm:// link\n"
               "to the registered handler; feed those back with --nxm or --nxm-file.\n")
         for eid, url in dl.links_for(m, entries):
             print(f"  {eid}\n    {url}")
         return 0
+
+    # Only the fetch path needs a destination. Computing it up front crashed with a raw
+    # TypeError (Path(None)) when neither flag was given; say what is missing instead.
+    if args.instance:
+        dest = pathlib.Path(args.instance) / "downloads"
+    elif args.dest:
+        dest = pathlib.Path(args.dest)
+    else:
+        print(f"{BAD} download needs a destination: pass --instance <dir> "
+              "(fetches into <dir>/downloads) or --dest <dir>")
+        return 1
 
     try:
         client = nexus.Client(args.key)

@@ -682,6 +682,48 @@ def test_offsite_hash_mismatch_is_reported_not_silently_reused(tmp_path, monkeyp
     assert r.matched is False
 
 
+def test_print_links_skips_offsite_targets_and_lists_only_nexus(tmp_path):
+    # Regression: once targets() started returning github/http entries, the free-account
+    # --print-links path built a Nexus file page for every target, and a bare
+    # e.source["modId"] on a github entry KeyErrored the whole run. links_for must skip
+    # off-site entries — there is nothing to click for a github release.
+    from modlist_agent import download as dl
+    text = textwrap.dedent("""
+        schema: 1
+        game:
+          id: fo4vr
+          nexusDomain: fallout4
+          runtime: "1.2.72"
+        tools: []
+        mods:
+          - id: ghmod
+            name: GitHub Mod
+            why: has no Nexus file page to click
+            tier: fix
+            enabled: true
+            source: { type: github, repo: someorg/somerepo, tag: v1.0, asset: asset.7z }
+            file: { name: asset.7z, sha256: null }
+            install: { root: data }
+          - id: nexmod
+            name: Nexus Mod
+            why: the only one with a clickable file page
+            tier: fix
+            enabled: true
+            source: { type: nexus, modId: 111, fileId: 222, version: "1" }
+            file: { name: n.7z, sha256: null }
+            install: { root: data }
+        order:
+          install: [ghmod, nexmod]
+    """)
+    p = tmp_path / "m.yaml"
+    p.write_text(text, encoding="utf-8")
+    m = mf.load(p, strict=False)
+    links = dl.links_for(m, dl.targets(m))          # must not raise
+    ids = [eid for eid, _ in links]
+    assert ids == ["nexmod"]
+    assert "mods/111" in links[0][1] and "file_id=222" in links[0][1]
+
+
 # --- portability: what a SECOND machine would hit ------------------------------------
 # Both of these were single hardcoded paths that happened to be right on the machine the
 # project was written on, which is the least reliable kind of correct.
