@@ -538,6 +538,150 @@ def test_a_reachable_url_short_circuits(monkeypatch):
     assert len(calls) == 1
 
 
+# --- download: off-site sources (github/http) -----------------------------------------
+# `mla download` used to filter targets() down to source.type == "nexus" and silently
+# drop everything else, so a recipe with an off-site pin (Addictol's github release, the
+# f4sevr http mirror) had to be staged by hand. These entries need no Nexus client or
+# API key — the URL is self-contained — so they must work even with no key configured.
+
+OFFSITE_TARGETS_MANIFEST = textwrap.dedent("""
+    schema: 1
+    game:
+      id: fo4vr
+      nexusDomain: fallout4
+      runtime: "1.2.72"
+    tools:
+      - id: mo2
+        name: Mod Organizer 2
+        why: the instance itself; root=instance is fetched by ensure_mo2, never by download
+        source: { type: github, repo: ModOrganizer2/modorganizer, tag: v2.5.2, asset: Mod.Organizer-2.5.2.7z }
+        file: { sha256: null }
+        install: { root: instance }
+    mods:
+      - id: ghmod
+        name: GitHub Mod
+        why: exercises the github fetch path
+        tier: fix
+        enabled: true
+        source: { type: github, repo: someorg/somerepo, tag: v1.0, asset: asset.7z }
+        file: { name: asset.7z, sha256: null }
+        install: { root: data }
+      - id: httpmod
+        name: HTTP Mod
+        why: exercises the http fetch path
+        tier: fix
+        enabled: true
+        source: { type: http, url: http://example.invalid/file.7z }
+        file: { name: file.7z, sha256: null }
+        install: { root: data }
+      - id: candidatemod
+        name: Candidate Mod
+        why: candidates are never fetched, off-site or not
+        tier: candidate
+        enabled: false
+        source: { type: github, repo: someorg/other, tag: v2.0, asset: other.7z }
+        file: { name: other.7z, sha256: null }
+        install: { root: data }
+    order:
+      install: [ghmod, httpmod]
+""")
+
+
+def _offsite_targets_manifest(tmp_path):
+    p = tmp_path / "m.yaml"
+    p.write_text(OFFSITE_TARGETS_MANIFEST, encoding="utf-8")
+    return mf.load(p, strict=False)
+
+
+def test_github_entry_is_a_target_with_the_release_url_built_correctly(tmp_path):
+    from modlist_agent import download as dl
+    m = _offsite_targets_manifest(tmp_path)
+    entries = {e.id: e for e in dl.targets(m)}
+    assert "ghmod" in entries
+    assert dl._offsite_url(entries["ghmod"].source) == (
+        "https://github.com/someorg/somerepo/releases/download/v1.0/asset.7z")
+
+
+def test_http_entry_is_a_target(tmp_path):
+    from modlist_agent import download as dl
+    m = _offsite_targets_manifest(tmp_path)
+    assert "httpmod" in {e.id for e in dl.targets(m)}
+
+
+def test_instance_root_and_candidate_tier_are_excluded_from_targets(tmp_path):
+    from modlist_agent import download as dl
+    m = _offsite_targets_manifest(tmp_path)
+    ids = {e.id for e in dl.targets(m)}
+    assert "mo2" not in ids            # root=instance: ensure_mo2 fetches it, not download
+    assert "candidatemod" not in ids   # tier=candidate: never fetched
+
+
+def _offsite_manifest_with_pin(tmp_path, sha256_hex):
+    text = textwrap.dedent(f"""
+        schema: 1
+        game:
+          id: fo4vr
+          nexusDomain: fallout4
+          runtime: "1.2.72"
+        tools: []
+        mods:
+          - id: ghmod
+            name: GitHub Mod
+            why: exercises the cached/mismatch offsite paths
+            tier: fix
+            enabled: true
+            source: {{ type: github, repo: someorg/somerepo, tag: v1.0, asset: asset.7z }}
+            file: {{ name: asset.7z, sha256: {sha256_hex} }}
+            install: {{ root: data }}
+        order:
+          install: [ghmod]
+    """)
+    p = tmp_path / "m.yaml"
+    p.write_text(text, encoding="utf-8")
+    return mf.load(p, strict=False)
+
+
+def test_offsite_cached_file_verifies_without_calling_the_downloader(tmp_path, monkeypatch):
+    import hashlib
+    from modlist_agent import download as dl
+
+    def boom(*a, **k):
+        raise AssertionError("a hash-matching cached file must not be re-downloaded")
+    monkeypatch.setattr(dl, "_download", boom)
+
+    content = b"pretend-github-release-bytes"
+    digest = hashlib.sha256(content).hexdigest()
+    m = _offsite_manifest_with_pin(tmp_path, digest)
+
+    dest_dir = tmp_path / "downloads"; dest_dir.mkdir()
+    (dest_dir / "asset.7z").write_bytes(content)
+
+    # client=None: the github/http path must not need one.
+    results = dl.fetch_all(m, dest_dir, client=None)
+    r = next(x for x in results if x.entry_id == "ghmod")
+    assert r.matched is True
+    assert r.note == "cached"
+
+
+def test_offsite_hash_mismatch_is_reported_not_silently_reused(tmp_path, monkeypatch):
+    from modlist_agent import download as dl
+
+    def boom(*a, **k):
+        raise AssertionError("a mismatch must be reported, not papered over by re-fetching")
+    monkeypatch.setattr(dl, "_download", boom)
+
+    # "deadbeef"x8, not all-digits, so PyYAML's plain-scalar resolver reads it as a string
+    # rather than (as it would for an all-zero run) folding it to the octal int 0.
+    m = _offsite_manifest_with_pin(tmp_path, "deadbeef" * 8)   # can't match what's on disk
+
+    dest_dir = tmp_path / "downloads"; dest_dir.mkdir()
+    (dest_dir / "asset.7z").write_bytes(b"these are not the pinned bytes")
+
+    results = dl.fetch_all(m, dest_dir, client=None)
+    r = next(x for x in results if x.entry_id == "ghmod")
+    assert r.matched is False
+
+
 # --- portability: what a SECOND machine would hit ------------------------------------
 # Both of these were single hardcoded paths that happened to be right on the machine the
 # project was written on, which is the least reliable kind of correct.

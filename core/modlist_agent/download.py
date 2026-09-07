@@ -58,15 +58,34 @@ def write_meta(dest: pathlib.Path, entry, domain: str) -> None:
         encoding="utf-8")
 
 
+def _offsite_url(src: dict) -> str:
+    """Same shape check.check_offsite already builds, factored out so fetch_all can
+    reuse it instead of re-deriving it (and so a future third shape only changes here)."""
+    if src["type"] == "github":
+        return (f"https://github.com/{src['repo']}/releases/download/"
+                f"{src['tag']}/{src['asset']}")
+    return src["url"]   # type == "http"
+
+
 def targets(manifest):
-    """Entries that need fetching: pinned to a Nexus file, and actually installed."""
+    """Entries that need fetching: pinned to a Nexus file or an off-site (github/http)
+    release, and actually installed.
+
+    root=instance is excluded: MO2 is root=instance and is fetched by ensure_mo2 during
+    `build`, never by `download` — pulling it here too would be a second, redundant fetch
+    path for the same file.
+    """
     out = []
     for e in manifest.mods + manifest.tools:
         if e.tier == "candidate":
             continue
-        if e.source.get("type") != "nexus":
+        if e.root == "instance":
             continue
-        if not e.source.get("fileId"):
+        t = e.source.get("type")
+        if t == "nexus":
+            if not e.source.get("fileId"):
+                continue
+        elif t not in ("github", "http"):
             continue
         out.append(e)
     return out
@@ -76,6 +95,40 @@ def links_for(manifest, entries) -> list[tuple[str, str]]:
     domain = manifest.game["nexusDomain"]
     return [(e.id, Client.file_page(domain, e.source["modId"], e.source["fileId"]))
             for e in entries]
+
+
+def _fetch_offsite(e, dest_dir: pathlib.Path) -> Fetched:
+    """github/http entries: the URL is self-contained, so this needs no Nexus client or
+    API key at all — unlike the Nexus branch of fetch_all, which always does.
+
+    No .meta sibling is written here. write_meta's shape (modID/fileID/repository=Nexus)
+    is Nexus-specific — a github/http file was never "installed via Nexus" for MO2's
+    update checks to be indistinguishable about, so a Nexus-shaped .meta next to it would
+    just be wrong, not merely incomplete.
+    """
+    want = e.file.get("sha256")
+    name = e.file.get("name")
+
+    if not name:
+        # Never guess a filename — a wrong one silently re-downloads forever.
+        return Fetched(e.id, dest_dir / e.id, "", None,
+                       "ERROR no file.name pinned — refusing to guess a filename")
+    dest = dest_dir / name
+
+    if dest.exists():
+        got = sha256(dest)
+        if want and got != want:
+            return Fetched(e.id, dest, got, False, "cached copy does not match pin")
+        return Fetched(e.id, dest, got, (got == want) if want else None, "cached")
+
+    try:
+        _download(_offsite_url(e.source), dest)
+    except (urllib.error.URLError, OSError) as exc:
+        return Fetched(e.id, dest, "", None, f"ERROR {exc}")
+
+    got = sha256(dest)
+    return Fetched(e.id, dest, got, (got == want) if want else None,
+                   "" if want else "no pin recorded yet")
 
 
 def fetch_all(manifest, dest_dir: pathlib.Path, *, client: Client,
@@ -88,6 +141,9 @@ def fetch_all(manifest, dest_dir: pathlib.Path, *, client: Client,
 
     for e in targets(manifest):
         if only and e.id not in only:
+            continue
+        if e.source.get("type") in ("github", "http"):
+            out.append(_fetch_offsite(e, dest_dir))
             continue
         mid, fid = e.source["modId"], e.source["fileId"]
         want = e.file.get("sha256")
