@@ -329,3 +329,148 @@ def test_unverified_platforms_are_declared_as_such():
     # SkyrimVR is a plausible-looking table nobody has tested. Keep that honest.
     assert "fo4vr" in platforms.VERIFIED
     assert "skyrimvr" not in platforms.VERIFIED
+
+
+# --- install.files matching ----------------------------------------------------------
+# Regression: `Data/Scripts/` was declared by BOTH recipes' script-extender entries and
+# installed nothing, because str(PurePath) uses backslashes on Windows while the manifest
+# uses forward slashes. `install` still reported success, which is why it went unnoticed.
+
+def test_wants_file_matches_a_directory_entry_across_separators():
+    from modlist_agent.instance import wants_file
+    rel = pathlib.PurePath("Data") / "Scripts" / "Actor.pex"
+    assert wants_file(rel, ["Data/Scripts/"])
+    assert wants_file(rel, ["Data/Scripts"])
+    assert wants_file(rel, [r"data\scripts"])
+
+
+def test_wants_file_matches_a_plain_file_entry():
+    from modlist_agent.instance import wants_file
+    assert wants_file(pathlib.PurePath("f4se_loader.exe"), ["f4se_loader.exe"])
+    assert not wants_file(pathlib.PurePath("f4se_loader.exe"), ["f4se_1_11_240.dll"])
+
+
+def test_wants_file_is_component_wise_not_a_raw_prefix():
+    from modlist_agent.instance import wants_file
+    rel = pathlib.PurePath("Data") / "ScriptsBackup" / "x.pex"
+    assert not wants_file(rel, ["Data/Scripts"])
+
+
+def test_wants_file_without_a_declaration_takes_everything():
+    from modlist_agent.instance import wants_file
+    assert wants_file(pathlib.PurePath("anything.dll"), None)
+    assert wants_file(pathlib.PurePath("anything.dll"), [])
+
+
+# --- profile ini seeding -------------------------------------------------------------
+# Regression: only rule 1 (<game>/<name>) existed, which covers FO4VR — whose game root
+# ships Fallout4.ini and Fallout4Prefs.ini — and covers flat Fallout 4 not at all, since
+# its root ships only Fallout4_Default.ini. A generated flat profile had NO game inis and
+# MO2 silently seeded them on first launch, so the gap looked like a working instance.
+
+def _seed_inis(tmp_path, monkeypatch, platform, game_files, doc_files):
+    from modlist_agent import discover, instance as inst_mod
+    game = tmp_path / "game"; game.mkdir()
+    for n, body in game_files.items():
+        (game / n).parent.mkdir(parents=True, exist_ok=True)
+        (game / n).write_text(body, encoding="utf-8")
+    docs = tmp_path / "docs"; docs.mkdir()
+    for n, body in doc_files.items():
+        (docs / n).write_text(body, encoding="utf-8")
+    monkeypatch.setattr(discover, "documents_dir", lambda p: docs)
+    monkeypatch.setattr(inst_mod.discover, "documents_dir", lambda p: docs)
+
+    i = inst_mod.Instance(tmp_path / "inst", platform, game)
+    i.profile_dir.mkdir(parents=True)
+    return i
+
+
+def test_flat_fo4_seeds_its_inis_from_template_and_documents(tmp_path, monkeypatch, man):
+    from modlist_agent import platforms
+    p = platforms.get("fo4")
+    i = _seed_inis(tmp_path, monkeypatch, p,
+                   {"Fallout4_Default.ini": "from-template"},   # NO Fallout4.ini here
+                   {"Fallout4Prefs.ini": "from-documents"})
+    i._write_profile(man)
+
+    assert (i.profile_dir / "Fallout4.ini").read_text() == "from-template"
+    assert (i.profile_dir / "Fallout4Prefs.ini").read_text() == "from-documents"
+    # the tuning ini is written, never copied — it is the adaptive half
+    assert "modlist-agent" in (i.profile_dir / "Fallout4Custom.ini").read_text()
+
+
+def test_a_game_shipped_ini_still_wins_over_the_template(tmp_path, monkeypatch, man):
+    """FO4VR's path must not regress: <game>/<name> is rule 1 and outranks the rest."""
+    from modlist_agent import platforms
+    p = platforms.get("fo4")
+    i = _seed_inis(tmp_path, monkeypatch, p,
+                   {"Fallout4.ini": "shipped", "Fallout4_Default.ini": "from-template"},
+                   {"Fallout4.ini": "from-documents"})
+    i._write_profile(man)
+    assert (i.profile_dir / "Fallout4.ini").read_text() == "shipped"
+
+
+# --- plugin load order vs install order ----------------------------------------------
+# Regression: plugins.txt was derived from order.install, which is the OPPOSITE convention.
+# order.install is winner-FIRST file priority; plugins.txt is load order, where a LATER
+# plugin wins records. The flat FO4 recipe is the first to have a pair where both matter:
+# PRP must beat UFO4P on files (so it is listed first) and must load AFTER it (so it is
+# written last). `order.plugins` declared that and nothing read it.
+
+PLUGIN_ORDER_MANIFEST = textwrap.dedent("""
+    schema: 1
+    game:
+      id: fo4vr
+      nexusDomain: fallout4
+      runtime: "1.2.72"
+    tools: []
+    mods:
+      - id: winner
+        name: Winner
+        why: must win file conflicts, must load last
+        tier: fix
+        source: { type: nexus, modId: 1, fileId: 2, version: "1" }
+        install: { root: data }
+        plugins: [zzz.esp]
+      - id: loser
+        name: Loser
+        why: loses files, loads first
+        tier: fix
+        source: { type: nexus, modId: 3, fileId: 4, version: "1" }
+        install: { root: data }
+        plugins: [aaa.esp]
+    order:
+      install: [winner, loser]
+      plugins: [Fallout4.esm, aaa.esp, zzz.esp]
+""")
+
+
+def _plugins_txt(tmp_path, monkeypatch, doc):
+    from modlist_agent import discover, instance as inst_mod, platforms
+    mp = tmp_path / "m.yaml"; mp.write_text(doc, encoding="utf-8")
+    game = tmp_path / "game"; game.mkdir()
+    (game / "Fallout4.ini").write_text("x", encoding="utf-8")
+    (game / "Fallout4Prefs.ini").write_text("x", encoding="utf-8")
+    monkeypatch.setattr(inst_mod.discover, "documents_dir", lambda p: game)
+    i = inst_mod.Instance(tmp_path / "i", platforms.get("fo4vr"), game)
+    i.profile_dir.mkdir(parents=True)
+    i._write_profile(mf.load(mp))
+    return [l for l in (i.profile_dir / "plugins.txt").read_text().splitlines()
+            if l.startswith("*")]
+
+
+def test_plugins_txt_follows_order_plugins_not_order_install(tmp_path, monkeypatch):
+    got = _plugins_txt(tmp_path, monkeypatch, PLUGIN_ORDER_MANIFEST)
+    # order.install is [winner(zzz), loser(aaa)]; order.plugins says aaa then zzz.
+    assert got == ["*Fallout4.esm", "*Fallout4_VR.esm", "*aaa.esp", "*zzz.esp"]
+
+
+def test_undeclared_plugins_keep_install_order_at_the_end(tmp_path, monkeypatch):
+    """A forgotten order.plugins entry must degrade, never drop the plugin."""
+    # NB: PLUGIN_ORDER_MANIFEST is already dedented, so match the dedented indentation.
+    doc = PLUGIN_ORDER_MANIFEST.replace(
+        "  plugins: [Fallout4.esm, aaa.esp, zzz.esp]",
+        "  plugins: [Fallout4.esm]")
+    assert "aaa.esp, zzz.esp" not in doc
+    got = _plugins_txt(tmp_path, monkeypatch, doc)
+    assert got == ["*Fallout4.esm", "*Fallout4_VR.esm", "*zzz.esp", "*aaa.esp"]
