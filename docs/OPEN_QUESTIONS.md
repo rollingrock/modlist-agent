@@ -233,6 +233,41 @@ interventions. That number is the real product metric.
 
 ---
 
+## 9. 🔴 One mod page is not one mod
+
+**Raised 2026-09-07 by the flat Fallout 4 recipe, and already met once before it.**
+
+Drift detection assumes a Nexus mod page hosts one product with a version history, so
+"the newest file in category MAIN" means "the upgrade". Three separate entries have now
+falsified that, in three different ways:
+
+- **Two products, one page.** Mod 84214 publishes *Addictol* and *Addictol Crash Logger*
+  as two MAIN files at different versions. `check` told the crash-logger entry to upgrade
+  to Addictol — a different plugin, and one the recipe already installs separately.
+- **The MAIN is the wrong build.** Mod 21497's MAIN is the flat Fallout 4 build of MCM
+  while the VR build ships as OPTIONAL, so `../recipes/fo4vr` must pin an OPTIONAL and
+  carries `drift.trackCategory` to say so. Mod 47327 is the same shape for the opposite
+  reason: its MAIN is a 56 MB every-runtime bundle and the OPTIONAL is the single
+  database a pinned recipe actually wants.
+- **The page is not a mod at all.** Mod 45429 turned out to be a patch hub rather than a
+  single mod, which is what first broke the assumption.
+
+`drift.trackCategory` handles the second case. The first has no real answer: the crash
+logger is suppressed with `drift.ignoreNewer`, which keeps the pin-still-exists check but
+gives up on noticing genuine updates, so a human has to. That is a stopgap, not a design.
+
+**Open:**
+- Is there a primitive that distinguishes products within a page? A name pattern is the
+  obvious candidate, but plain substring cannot express "Addictol but not Addictol Crash
+  Logger", so it would have to be a regex — more rope than this schema has wanted so far.
+- Or is the honest answer that upgrade *detection* is out of scope, and `check` should
+  only ever assert that a pin still resolves?
+- Whichever wins: no key gets added to the schema without being implemented and tested in
+  the same commit. `postInstall` parsed and did nothing for thirteen days, and that is the
+  failure this note should not repeat.
+
+---
+
 ## Where the project actually stands
 
 **The first milestone is done** — [`VERIFICATION.md`](VERIFICATION.md). Steps 1 and 2 of the

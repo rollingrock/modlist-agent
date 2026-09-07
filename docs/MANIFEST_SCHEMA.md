@@ -174,6 +174,27 @@ order:
     ...
 ```
 
+`order.plugins` is **load order, and it is the opposite convention to `order.install`.**
+`order.install` is winner-first file priority; in `plugins.txt` a *later* plugin wins a
+record conflict. A mod that must win files therefore usually goes first in one and last in
+the other, so deriving either from the other inverts the answer.
+
+It is applied as a **sort key** over the plugins that installed mods contribute, not as the
+literal contents of the file:
+
+- entries no installed mod contributes are **documentation** and are not written — that is
+  how the Fallout 4 DLC are listed for the record while staying out of `plugins.txt`, where
+  the engine loads them itself from `DLCList.txt`;
+- a contributed plugin the list forgets keeps its manifest order **at the end**, so an
+  incomplete list degrades to the old behaviour rather than dropping a plugin;
+- `platform.base_plugins` are always emitted first, ahead of anything a mod adds.
+
+> **Fixed 2026-09-07.** This list was declared from the start and read by nothing —
+> `plugins.txt` was built from `order.install`. It went unnoticed because no recipe had two
+> plugins whose file priority and load order disagreed. `recipes/fo4` does: PRP must beat
+> UFO4P on files and load after it, and the derived order handed every overlapping record
+> to the patch. The same shape as `postInstall`: a key that parses and does nothing.
+
 `order.install` lists **our slugs, winner first**, and the writer emits them into
 `modlist.txt` **in that same order** — `modlist.txt` is also winner-first, so there is no
 reversal step at all.
