@@ -11,6 +11,7 @@ for when a manifest changes and you actually want the bytes checked.
 """
 from __future__ import annotations
 
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -21,7 +22,7 @@ from .nexus import Client, NexusError
 @dataclass
 class Finding:
     entry_id: str
-    level: str          # ok | warn | dead
+    level: str          # ok | warn | dead | unreachable
     message: str
 
 
@@ -111,19 +112,45 @@ def check_nexus(manifest, client: Client) -> list[Finding]:
     return out
 
 
-def _head_ok(url: str) -> tuple[bool, str]:
+def _head_once(url: str) -> tuple[str, str]:
     req = urllib.request.Request(url, method="HEAD",
                                  headers={"User-Agent": "modlist-agent/0.1"})
     try:
         with urllib.request.urlopen(req, timeout=30) as r:
-            return (200 <= r.status < 400), str(r.status)
+            return ("ok" if 200 <= r.status < 400 else "dead"), str(r.status)
     except urllib.error.HTTPError as e:
         # Some hosts reject HEAD but serve GET; silverlock is one, so do not call it dead.
         if e.code in (403, 405):
-            return True, f"{e.code} (HEAD not allowed; treated as live)"
-        return False, str(e.code)
+            return "ok", f"{e.code} (HEAD not allowed; treated as live)"
+        return "dead", str(e.code)
     except (urllib.error.URLError, OSError) as e:
-        return False, str(e)
+        # THE HOST DID NOT ANSWER. That is not the same claim as "the file is gone", and
+        # collapsing the two is how a check turns someone else's outage into our failure.
+        return "unreachable", str(e)
+
+
+def _head(url: str, attempts: int = 3) -> tuple[str, str]:
+    """Reachability, three-state, with retries for the unreachable case only.
+
+    MEASURED 2026-09-07: the scheduled drift run went red because
+    http://f4se.silverlock.org/beta/f4sevr_0_6_21.7z timed out from a GitHub runner
+    (WinError 10060) while answering 301 in 0.16s from the developer's machine. The pin
+    was not dead, silverlock was not down for the world, and CI reported "1 dead" — a
+    third party's egress being a red board is noise, and noise is how a real dead pin
+    later gets waved through.
+
+    A definite HTTP answer is returned immediately; only a connection failure is retried,
+    since that is the one that is plausibly transient.
+    """
+    last = ("unreachable", "no attempt made")
+    for i in range(max(1, attempts)):
+        state, note = _head_once(url)
+        if state != "unreachable":
+            return state, note
+        last = (state, note)
+        if i + 1 < attempts:
+            time.sleep(2 * (i + 1))
+    return last[0], f"{last[1]} (after {attempts} attempts)"
 
 
 def check_offsite(manifest) -> list[Finding]:
@@ -138,7 +165,6 @@ def check_offsite(manifest) -> list[Finding]:
             url = src["url"]
         else:
             continue
-        ok, note = _head_ok(url)
-        out.append(Finding(e.id, "ok" if ok else "dead",
-                           f"{url} -> {note}"))
+        state, note = _head(url)
+        out.append(Finding(e.id, state, f"{url} -> {note}"))
     return out

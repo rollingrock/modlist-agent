@@ -78,6 +78,19 @@ have been confidently wrong. Inconclusive means *go look*, not *it is broken*.
 turns news into failure, off by default). A newer file upstream is not a defect — the pin
 is doing exactly its job — but it is the signal a maintainer needs.
 
+**It also returns 2, and that is not a failure.** An off-site source whose host did not
+answer is *unreachable*, which says nothing about whether the pin is still good. The
+distinction was forced on 2026-09-07: a scheduled run reported `1 dead` because
+`f4se.silverlock.org` timed out from a GitHub runner while answering `301` in 0.16s from
+the developer's machine. Turning a third party's egress into a red board is noise, and
+noise is how a genuinely dead pin later gets waved through. Connection failures are
+retried, a definite HTTP answer is not, and the hosted jobs print
+`INCONCLUSIVE (a host did not answer)` and stay green.
+
+Both hosted steps iterate **every** `recipes/*/manifest.yaml` rather than naming one.
+They named `fo4vr` explicitly until `recipes/fo4` arrived with no coverage at all and
+nothing said so.
+
 ## What CI still would not prove
 
 Worth stating so a wall of green does not imply more than it should:

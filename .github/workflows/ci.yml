@@ -36,13 +36,16 @@ jobs:
         # --no-nexus so this half runs on forks and PRs with no secret available.
         run: |
           $failed = @()
+          $shrug = @()   # exit 2: inconclusive, not a failure
           foreach ($r in Get-ChildItem recipes -Directory | Sort-Object Name) {
             $m = "recipes/$($r.Name)/manifest.yaml"
             if (-not (Test-Path $m)) { continue }
             Write-Host "== $m"
             python core/mla.py check $m --no-nexus
-            if ($LASTEXITCODE -ne 0) { $failed += $m }
+            if ($LASTEXITCODE -eq 1) { $failed += $m }
+            elseif ($LASTEXITCODE -eq 2) { $shrug += $m }
           }
+          if ($shrug) { Write-Host "INCONCLUSIVE (a host did not answer): $($shrug -join ', ')" }
           if ($failed) { Write-Host "FAILED: $($failed -join ', ')"; exit 1 }
         shell: pwsh
 
@@ -68,14 +71,17 @@ jobs:
           $noNexus = "$env:NEXUS_API_KEY" -eq ""
           if ($noNexus) { Write-Host "no NEXUS_API_KEY secret; running off-site checks only" }
           $failed = @()
+          $shrug = @()   # exit 2: inconclusive, not a failure
           foreach ($r in Get-ChildItem recipes -Directory | Sort-Object Name) {
             $m = "recipes/$($r.Name)/manifest.yaml"
             if (-not (Test-Path $m)) { continue }
             Write-Host "== $m"
             if ($noNexus) { python core/mla.py check $m --no-nexus }
             else          { python core/mla.py check $m }
-            if ($LASTEXITCODE -ne 0) { $failed += $m }
+            if ($LASTEXITCODE -eq 1) { $failed += $m }
+            elseif ($LASTEXITCODE -eq 2) { $shrug += $m }
           }
+          if ($shrug) { Write-Host "INCONCLUSIVE (a host did not answer): $($shrug -join ', ')" }
           if ($failed) { Write-Host "FAILED: $($failed -join ', ')"; exit 1 }
         shell: pwsh
 

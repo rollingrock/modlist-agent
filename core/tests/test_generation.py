@@ -493,3 +493,46 @@ def test_the_tuning_ini_is_never_imported_from_documents(tmp_path, monkeypatch, 
         body = (i.profile_dir / p.tuning_ini).read_text()
         assert "bInvalidateOlderFiles" in body, pid
         assert "iLocation" not in body, pid
+
+
+# --- offsite reachability: unreachable is not dead -----------------------------------
+# 2026-09-07: a scheduled drift run went red because silverlock timed out from a GitHub
+# runner (WinError 10060) while answering 301 in 0.16s from the developer's machine. The
+# pin was fine. "Host did not answer" and "file is gone" were the same return value.
+
+def test_a_connection_failure_is_unreachable_not_dead(monkeypatch):
+    from modlist_agent import check as ck
+    calls = []
+
+    def boom(url):
+        calls.append(url)
+        return "unreachable", "[WinError 10060] timed out"
+
+    monkeypatch.setattr(ck, "_head_once", boom)
+    monkeypatch.setattr(ck.time, "sleep", lambda _s: None)
+    state, note = ck._head("http://example.invalid/x.7z", attempts=3)
+    assert state == "unreachable"
+    assert "after 3 attempts" in note
+    assert len(calls) == 3, "a connection failure should be retried"
+
+
+def test_an_http_404_is_dead_and_is_not_retried(monkeypatch):
+    from modlist_agent import check as ck
+    calls = []
+
+    def gone(url):
+        calls.append(url)
+        return "dead", "404"
+
+    monkeypatch.setattr(ck, "_head_once", gone)
+    state, _ = ck._head("http://example.invalid/x.7z", attempts=3)
+    assert state == "dead"
+    assert len(calls) == 1, "a definite HTTP answer must not be retried"
+
+
+def test_a_reachable_url_short_circuits(monkeypatch):
+    from modlist_agent import check as ck
+    calls = []
+    monkeypatch.setattr(ck, "_head_once", lambda u: (calls.append(u), ("ok", "200"))[1])
+    assert ck._head("http://example.invalid/x.7z", attempts=3)[0] == "ok"
+    assert len(calls) == 1
